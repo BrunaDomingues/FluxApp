@@ -18,6 +18,7 @@ import { ICONE_PADRAO } from '../constants/categorias';
 
 export default function CategoriesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const bottomSafe = insets.bottom || 12;
   const { categorias, addCategoria } = useApp();
   const [modalVisible, setModalVisible] = useState(false);
   const [nome, setNome] = useState('');
@@ -42,7 +43,7 @@ export default function CategoriesScreen({ navigation }) {
   const getIcon = (c) => c.icon || ICONE_PADRAO;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: bottomSafe }]}>
       <View style={[styles.header, { backgroundColor: corAba }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
@@ -71,7 +72,11 @@ export default function CategoriesScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomSafe }]}
+        showsVerticalScrollIndicator={false}
+      >
         {categoriasFiltradas.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="pricetag-outline" size={48} color={colors.textMuted} />
@@ -102,7 +107,7 @@ export default function CategoriesScreen({ navigation }) {
       </ScrollView>
 
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: corAba }]}
+        style={[styles.fab, { backgroundColor: corAba, bottom: bottomSafe + spacing.xl }]}
         onPress={() => { setTipo(aba); setModalVisible(true); }}
       >
         <Ionicons name="add" size={28} color={colors.textPrimary} />
@@ -196,8 +201,9 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: 80,
   },
+  scroll: { flex: 1 },
   empty: {
     alignItems: 'center',
     paddingVertical: spacing.xl * 2,
