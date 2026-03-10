@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
@@ -20,7 +21,7 @@ const iconMap = {
   default: 'cash-outline',
 };
 
-export default function TransactionsScreen() {
+export default function TransactionsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { transacoes } = useApp();
 
@@ -45,7 +46,12 @@ export default function TransactionsScreen() {
             </View>
           ) : (
             transacoes.map((t) => (
-              <View key={t.id} style={styles.row}>
+              <TouchableOpacity
+                key={t.id}
+                style={styles.row}
+                onPress={() => navigation.navigate('AddTransaction', { editar: t })}
+                activeOpacity={0.7}
+              >
                 <View style={styles.iconWrap}>
                   <Ionicons
                     name={t.categoriaNome ? getIcon(t.categoriaNome) : (t.tipo === 'entrada' ? 'trending-up-outline' : 'trending-down-outline')}
@@ -67,7 +73,7 @@ export default function TransactionsScreen() {
                 >
                   {t.valor >= 0 ? '+' : ''}R$ {Math.abs(t.valor || 0).toFixed(2)}
                 </Text>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </View>

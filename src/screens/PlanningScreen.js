@@ -31,7 +31,7 @@ export default function PlanningScreen({ navigation }) {
   const diasNoMes = new Date(ano, mes + 1, 0).getDate();
   const diaHoje = now.getDate();
   const diasRestantes = Math.max(1, diasNoMes - diaHoje + 1);
-  const disponivelPorDia = restamTotal / diasRestantes;
+  const disponivelPorDia = Math.round((restamTotal / diasRestantes) * 100) / 100;
 
   const categoriasSaida = categorias.filter((c) => c.tipo === 'saida');
   const orcamentoPorCategoria = orc.categorias || {};
@@ -136,9 +136,10 @@ export default function PlanningScreen({ navigation }) {
           <Text style={styles.restamLabel}>Restam</Text>
           <Text style={styles.restamValue}>R$ {restamTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
           <Text style={styles.diariaLabel}>Disponível por dia</Text>
-          <Text style={styles.diariaValue}>R$ {disponivelPorDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
+          <Text style={styles.diariaValue}>R$ {disponivelPorDia.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
           <View style={styles.progressWrap}>
             <View style={[styles.progressBar, { flex: 1 }]}>
+              <View style={styles.progressTrack} />
               <View
                 style={[
                   styles.progressFill,
@@ -148,6 +149,11 @@ export default function PlanningScreen({ navigation }) {
                   },
                 ]}
               />
+              {totalOrcamento > 0 && totalGasto > 0 && (
+                <Text style={styles.progressPctInside} numberOfLines={1}>
+                  {Math.round((totalGasto / totalOrcamento) * 100)}%
+                </Text>
+              )}
             </View>
             <Text style={styles.progressText}>
               R$ {totalGasto.toFixed(2)} de R$ {totalOrcamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -160,6 +166,9 @@ export default function PlanningScreen({ navigation }) {
           const gasto = gastoPorCat[cat.id] || 0;
           const restam = Math.max(0, limite - gasto);
           const pct = limite ? (gasto / limite) * 100 : 0;
+          const pctDoTotal = totalOrcamento ? (limite / totalOrcamento) * 100 : 0;
+          const excedeu = Math.max(0, gasto - limite);
+          const pctAMais = pct > 100 ? Math.round(pct - 100) : 0;
           if (limite <= 0) return null;
           return (
             <View key={cat.id} style={styles.card}>
@@ -169,16 +178,40 @@ export default function PlanningScreen({ navigation }) {
                 </View>
                 <View style={styles.cardInfo}>
                   <Text style={styles.catNome}>{cat.nome}</Text>
-                  <Text style={styles.restamCat}>Restam R$ {restam.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
+                  <Text style={styles.restamCat}>
+                    Restam R$ {restam.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {totalOrcamento > 0 && ` (${pctDoTotal.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% do total)`}
+                  </Text>
                 </View>
               </View>
               <View style={styles.progressWrap}>
                 <View style={styles.progressBar}>
+                  <View style={styles.progressTrack} />
                   <View style={[styles.progressFill, { width: `${Math.min(100, pct)}%`, backgroundColor: colors.spending }]} />
+                  {pct > 0 && (
+                    <Text style={styles.progressPctInside} numberOfLines={1}>
+                      {Math.round(pct)}%
+                    </Text>
+                  )}
                 </View>
                 <Text style={styles.progressText}>
-                  R$ {gasto.toFixed(2)} de R$ {limite.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {gasto.toFixed(2)} de R$ {limite.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </Text>
+                {excedeu > 0 && (
+                  <Text style={styles.excedeuText}>
+                    Excedeu R$ {excedeu.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({pctAMais}% a mais)
+                  </Text>
+                )}
+                {pct >= 100 && limite > 0 && (
+                  <View style={styles.statusRow}>
+                    <View style={[styles.statusDot, pct > 100 ? styles.statusDotRed : styles.statusDotGreen]} />
+                    <Text style={styles.statusText}>
+                      {pct === 100
+                        ? '100,00% Despesas pagas'
+                        : `${Math.round(pct)}% Despesas pagas · Excedentes`}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           );
@@ -197,6 +230,7 @@ export default function PlanningScreen({ navigation }) {
             </View>
             <View style={styles.progressWrap}>
               <View style={styles.progressBar}>
+                <View style={styles.progressTrack} />
                 <View style={[styles.progressFill, { width: '0%', backgroundColor: colors.secondary }]} />
               </View>
               <Text style={styles.progressText}>R$ 0,00 de R$ {restantesCategorias.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
@@ -258,14 +292,59 @@ const styles = StyleSheet.create({
   diariaValue: { fontSize: 16, fontWeight: '600', color: colors.textSecondary, marginBottom: spacing.md },
   progressWrap: { marginTop: spacing.xs },
   progressBar: {
-    height: 8,
+    height: 12,
+    position: 'relative',
+    marginBottom: spacing.xs,
+    flex: 1,
+  },
+  progressTrack: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 15,
     backgroundColor: colors.backgroundCardElevated,
-    borderRadius: 4,
-    overflow: 'hidden',
+    borderRadius: 10,
+  },
+  progressBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     marginBottom: spacing.xs,
   },
-  progressFill: { height: '100%', borderRadius: 4 },
+  progressFill: {
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
+    height: 15,
+    borderRadius: 10,
+  },
+  progressPctInside: {
+    position: 'absolute',
+    top: 0,
+    right: 8,
+    bottom: 0,
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    lineHeight: 10,
+  },
+  progressPct: { fontSize: 12, fontWeight: '600', color: colors.textMuted, minWidth: 36 },
   progressText: { fontSize: 12, color: colors.textMuted },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    gap: spacing.xs,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusDotGreen: { backgroundColor: colors.positive },
+  statusDotRed: { backgroundColor: colors.spending },
+  statusText: { fontSize: 12, color: colors.textMuted, fontWeight: '500' },
   card: {
     backgroundColor: colors.backgroundCard,
     borderRadius: borderRadius.lg,
@@ -284,6 +363,7 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1 },
   catNome: { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
   restamCat: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  excedeuText: { fontSize: 12, color: colors.spending, marginTop: 4, fontWeight: '600' },
   definirBtn: {
     backgroundColor: colors.secondary,
     borderRadius: borderRadius.md,

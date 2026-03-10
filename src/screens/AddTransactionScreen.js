@@ -14,13 +14,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
-import { formatBRL, parseToRaw, rawToNumber } from '../utils/currency';
+import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/currency';
 
 export default function AddTransactionScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { categorias, contas, cartoes, addTransacao } = useApp();
-  const tipo = route?.params?.tipo || 'saida';
-  const isCartao = route?.params?.despesaCartao === true;
+  const { categorias, contas, cartoes, addTransacao, updateTransacao, transacoes } = useApp();
+  const editar = route?.params?.editar;
+  const isEditMode = !!editar;
+
+  const tipo = isEditMode
+    ? (editar.descricao && editar.descricao.includes('Transferência') ? 'transferencia' : editar.tipo === 'entrada' ? 'entrada' : 'saida')
+    : (route?.params?.tipo || 'saida');
+  const isCartao = isEditMode ? editar.tipo === 'despesa_cartao' : route?.params?.despesaCartao === true;
   const isTransferencia = tipo === 'transferencia';
 
   const [valor, setValor] = useState('');
@@ -40,9 +45,54 @@ export default function AddTransactionScreen({ navigation, route }) {
     }
   }, [contaId, isTransferencia, contas.length]);
 
+  useEffect(() => {
+    if (!editar) return;
+    setValor(numberToRaw(Math.abs(editar.valor || 0)));
+    setDescricao(editar.descricao || '');
+    setCategoriaId(editar.categoriaId || null);
+    setContaId(editar.contaId || contas[0]?.id || null);
+    setCartaoId(editar.cartaoId || cartoes[0]?.id || null);
+    if (editar.transferenciaId) {
+      const outro = transacoes.find((x) => x.transferenciaId === editar.transferenciaId && x.id !== editar.id);
+      if (editar.descricao === 'Transferência enviada') {
+        setContaDestinoId(outro?.contaId || contas[1]?.id || null);
+      } else {
+        setContaId(outro?.contaId || contas[0]?.id || null);
+        setContaDestinoId(editar.contaId || null);
+      }
+    } else {
+      setContaDestinoId(contas[1]?.id || null);
+    }
+  }, [editar?.id]);
+
   const handleSalvar = () => {
     if (valorNum <= 0) {
       Alert.alert('Atenção', 'Informe o valor.');
+      return;
+    }
+    if (isEditMode) {
+      if (isTransferencia) {
+        updateTransacao(editar.id, {
+          valor: valorNum,
+          contaId,
+          contaDestinoId: contaDestinoId || contas.find((c) => c.id !== contaId)?.id,
+        });
+      } else {
+        if (!categoriaId) {
+          Alert.alert('Atenção', 'Selecione uma categoria.');
+          return;
+        }
+        const cat = categorias.find((c) => c.id === categoriaId);
+        updateTransacao(editar.id, {
+          valor: tipo === 'entrada' ? valorNum : -valorNum,
+          categoriaId: categoriaId || undefined,
+          categoriaNome: cat?.nome,
+          contaId: isCartao ? undefined : contaId,
+          cartaoId: isCartao ? cartaoId : undefined,
+          descricao: descricao.trim() || undefined,
+        });
+      }
+      navigation.goBack();
       return;
     }
     if (isTransferencia) {
@@ -56,8 +106,9 @@ export default function AddTransactionScreen({ navigation, route }) {
         Alert.alert('Atenção', 'Selecione contas diferentes.');
         return;
       }
-      addTransacao({ tipo: 'saida', valor: -valorNum, contaId: contaOrigemId, descricao: 'Transferência enviada' });
-      addTransacao({ tipo: 'entrada', valor: valorNum, contaId: destId, descricao: 'Transferência recebida' });
+      const transferenciaId = Date.now().toString() + '_' + Math.random().toString(36).slice(2);
+      addTransacao({ tipo: 'saida', valor: -valorNum, contaId: contaOrigemId, descricao: 'Transferência enviada', transferenciaId });
+      addTransacao({ tipo: 'entrada', valor: valorNum, contaId: destId, descricao: 'Transferência recebida', transferenciaId });
       navigation.goBack();
       return;
     }
@@ -78,7 +129,9 @@ export default function AddTransactionScreen({ navigation, route }) {
     navigation.goBack();
   };
 
-  const title = isTransferencia ? 'Transferência' : tipo === 'entrada' ? 'Nova entrada' : isCartao ? 'Despesa no cartão' : 'Nova despesa';
+  const title = isEditMode
+    ? (isTransferencia ? 'Editar transferência' : tipo === 'entrada' ? 'Editar entrada' : isCartao ? 'Editar despesa no cartão' : 'Editar despesa')
+    : (isTransferencia ? 'Transferência' : tipo === 'entrada' ? 'Nova entrada' : isCartao ? 'Despesa no cartão' : 'Nova despesa');
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

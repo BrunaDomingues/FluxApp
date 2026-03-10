@@ -292,6 +292,11 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
                   placeholder="R$ 0,00"
                   placeholderTextColor={colors.textMuted}
                 />
+                {totalNum > 0 && (
+                  <Text style={styles.modalPct}>
+                    {((rawToNumber(modalMeta.valor) / totalNum) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% do orçamento total
+                  </Text>
+                )}
                 <Text style={styles.modalRestante}>
                   Valor restante após: R$ {Math.max(0, valorRestante + (porCategoria[modalMeta.cat.id] || 0) - rawToNumber(modalMeta.valor)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </Text>
@@ -456,6 +461,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   modalRestante: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.lg },
+  modalPct: { fontSize: 12, color: colors.secondary, marginBottom: spacing.xs },
   modalBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.lg },
   modalBtnCancel: { padding: spacing.sm },
   modalBtnCancelText: { fontSize: 14, fontWeight: '600', color: colors.textMuted },

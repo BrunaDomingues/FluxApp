@@ -42,6 +42,27 @@ export function AppProvider({ children }) {
     }]);
   }, []);
 
+  const updateTransacao = useCallback((id, payload) => {
+    setTransacoes((prev) => {
+      const t = prev.find((x) => x.id === id);
+      if (!t) return prev;
+      if (t.transferenciaId) {
+        const par = prev.find((x) => x.transferenciaId === t.transferenciaId && x.id !== id);
+        const valor = Math.abs(payload.valor != null ? payload.valor : t.valor);
+        const contaOrigem = payload.contaId != null ? payload.contaId : (t.descricao === 'Transferência enviada' ? t.contaId : par?.contaId);
+        const contaDestino = payload.contaDestinoId != null ? payload.contaDestinoId : (t.descricao === 'Transferência recebida' ? t.contaId : par?.contaId);
+        return prev.map((x) => {
+          if (x.transferenciaId !== t.transferenciaId) return x;
+          if (x.descricao === 'Transferência enviada') {
+            return { ...x, valor: -valor, contaId: contaOrigem };
+          }
+          return { ...x, valor, contaId: contaDestino };
+        });
+      }
+      return prev.map((x) => (x.id === id ? { ...x, ...payload } : x));
+    });
+  }, []);
+
   // Orçamento mensal: { "2026-3": { total: 4000, categorias: { "idCat": limite } } }
   const [orcamentoMensal, setOrcamentoMensalState] = useState({});
   const setOrcamentoMensal = useCallback((mes, ano, total, porCategoria) => {
@@ -95,6 +116,7 @@ export function AppProvider({ children }) {
     addCartao,
     addCategoria,
     addTransacao,
+    updateTransacao,
     saldoContas,
     totalReceitas,
     totalDespesas,
