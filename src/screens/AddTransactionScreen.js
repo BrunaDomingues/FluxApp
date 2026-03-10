@@ -29,7 +29,7 @@ export default function AddTransactionScreen({ navigation, route }) {
   const isTransferencia = tipo === 'transferencia';
 
   const [valor, setValor] = useState('');
-  const [categoriaId, setCategoriaId] = useState(null);
+  const [categoriaId, setCategoriaId] = useState(route?.params?.categoriaId ?? null);
   const [contaId, setContaId] = useState(contas[0]?.id || null);
   const [contaDestinoId, setContaDestinoId] = useState(contas[1]?.id || null);
   const [cartaoId, setCartaoId] = useState(cartoes[0]?.id || null);

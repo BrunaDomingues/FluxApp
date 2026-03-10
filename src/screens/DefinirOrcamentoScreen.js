@@ -23,8 +23,11 @@ const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julh
 const SUGESTAO_PCT = 0.8;
 const SLIDER_MAX = 50000;
 
-const iconPorCat = { Alimentação: 'restaurant-outline', Moradia: 'home-outline', Transporte: 'car-outline', Lazer: 'happy-outline', Saúde: 'medkit-outline', Educação: 'school-outline' };
-function getIcon(nome) { return iconPorCat[nome] || 'pricetag-outline'; }
+const iconPorCat = { Alimentação: 'restaurant-outline', Moradia: 'home-outline', Transporte: 'car-outline', Lazer: 'happy-outline', Saúde: 'medkit-outline', Educação: 'school-outline', Casa: 'home-outline' };
+function getIcon(cat) {
+  if (cat && cat.icon) return cat.icon;
+  return iconPorCat[cat?.nome] || 'pricetag-outline';
+}
 
 export default function DefinirOrcamentoScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -219,7 +222,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
               activeOpacity={0.7}
             >
               <View style={[styles.catIconCircle, { backgroundColor: colors.secondary + '40' }]}>
-                <Ionicons name={getIcon(cat.nome)} size={22} color={colors.secondary} />
+                <Ionicons name={getIcon(cat)} size={22} color={colors.secondary} />
               </View>
               <Text style={styles.catNome}>{cat.nome}</Text>
               <View style={[styles.radio, categoriasSelecionadas[cat.id] && styles.radioChecked]}>
@@ -253,7 +256,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
           {categoriasSaida.filter((c) => categoriasSelecionadas[c.id]).map((cat) => (
             <TouchableOpacity key={cat.id} style={styles.metaRow} onPress={() => abrirMeta(cat)}>
               <View style={[styles.catIconCircle, { backgroundColor: colors.secondary + '40' }]}>
-                <Ionicons name={getIcon(cat.nome)} size={22} color={colors.secondary} />
+                <Ionicons name={getIcon(cat)} size={22} color={colors.secondary} />
               </View>
               <Text style={styles.catNome}>{cat.nome}</Text>
               <Text style={styles.metaValor}>R$ {(porCategoria[cat.id] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
@@ -279,7 +282,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
               <>
                 <View style={styles.modalCatRow}>
                   <View style={[styles.catIconCircle, { backgroundColor: colors.secondary + '40' }]}>
-                    <Ionicons name={getIcon(modalMeta.cat.nome)} size={20} color={colors.secondary} />
+                    <Ionicons name={getIcon(modalMeta.cat)} size={20} color={colors.secondary} />
                   </View>
                   <Text style={styles.catNome}>{modalMeta.cat.nome}</Text>
                 </View>

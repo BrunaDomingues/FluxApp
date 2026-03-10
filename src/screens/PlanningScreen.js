@@ -13,8 +13,11 @@ import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-const iconPorCategoria = { Alimentação: 'restaurant-outline', Moradia: 'home-outline', Transporte: 'car-outline', Lazer: 'happy-outline' };
-function getCatIcon(nome) { return iconPorCategoria[nome] || 'pricetag-outline'; }
+const iconPorCategoria = { Alimentação: 'restaurant-outline', Moradia: 'home-outline', Transporte: 'car-outline', Lazer: 'happy-outline', Casa: 'home-outline', Saúde: 'medkit-outline', Educação: 'school-outline' };
+function getCatIcon(cat) {
+  if (cat && cat.icon) return cat.icon;
+  return iconPorCategoria[cat?.nome] || 'pricetag-outline';
+}
 
 export default function PlanningScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -174,7 +177,7 @@ export default function PlanningScreen({ navigation }) {
             <View key={cat.id} style={styles.card}>
               <View style={styles.cardRow}>
                 <View style={[styles.catIcon, { backgroundColor: colors.spending + '40' }]}>
-                  <Ionicons name={getCatIcon(cat.nome)} size={20} color={colors.spending} />
+                  <Ionicons name={getCatIcon(cat)} size={20} color={colors.spending} />
                 </View>
                 <View style={styles.cardInfo}>
                   <Text style={styles.catNome}>{cat.nome}</Text>

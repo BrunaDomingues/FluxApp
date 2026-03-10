@@ -15,6 +15,7 @@ import { useApp } from '../context/AppContext';
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { contas, cartoes, saldoContas, totalReceitas, totalDespesas } = useApp();
+  const cartoesAtivos = cartoes.filter((c) => c.ativo !== false);
 
   const saldo = saldoContas;
   const entradas = totalReceitas;
@@ -68,7 +69,7 @@ export default function HomeScreen({ navigation }) {
         {/* Cartões */}
         <Text style={styles.sectionTitle}>Cartões de crédito</Text>
         <View style={styles.card}>
-          {cartoes.length === 0 ? (
+          {cartoesAtivos.length === 0 ? (
             <>
               <View style={styles.emptyCartaoIcon}>
                 <Ionicons name="card-outline" size={40} color={colors.textMuted} />
@@ -79,14 +80,14 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.emptyCartaoSub}>Melhore seu controle financeiro agora!</Text>
               <TouchableOpacity
                 style={styles.addCartaoButton}
-                onPress={() => navigation.navigate('AddCard')}
+                onPress={() => navigation.navigate('SelectCardType')}
               >
                 <Text style={styles.addCartaoButtonText}>ADICIONAR NOVO CARTÃO</Text>
               </TouchableOpacity>
             </>
           ) : (
             <>
-              {cartoes.map((c) => (
+              {cartoesAtivos.map((c) => (
                 <View key={c.id} style={styles.contaRow}>
                   <View style={[styles.contaIconWrap, { backgroundColor: colors.secondary + '30' }]}>
                     <Ionicons name="card-outline" size={22} color={colors.secondary} />
@@ -101,7 +102,7 @@ export default function HomeScreen({ navigation }) {
               ))}
               <TouchableOpacity
                 style={styles.addCartaoButtonSecondary}
-                onPress={() => navigation.navigate('AddCard')}
+                onPress={() => navigation.navigate('SelectCardType')}
               >
                 <Ionicons name="add" size={20} color={colors.secondary} />
                 <Text style={styles.addContaButtonText}>ADICIONAR OUTRO CARTÃO</Text>

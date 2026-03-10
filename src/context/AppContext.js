@@ -1,34 +1,62 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { categoriasPadrao } from '../constants/categorias';
+import { loadCategorias as loadCategoriasStorage, saveCategorias as saveCategoriasStorage } from '../utils/storage';
 
 const AppContext = createContext(null);
-
-const categoriasIniciais = [
-  { id: '1', nome: 'Moradia', tipo: 'saida' },
-  { id: '2', nome: 'Alimentação', tipo: 'saida' },
-  { id: '3', nome: 'Transporte', tipo: 'saida' },
-  { id: '4', nome: 'Lazer', tipo: 'saida' },
-  { id: '5', nome: 'Salário', tipo: 'entrada' },
-  { id: '6', nome: 'Freelance', tipo: 'entrada' },
-];
 
 export function AppProvider({ children }) {
   const [contas, setContas] = useState([
     { id: 'carteira', nome: 'Carteira', saldo: 0 },
   ]);
   const [cartoes, setCartoes] = useState([]);
-  const [categorias, setCategorias] = useState(categoriasIniciais);
+  const [categorias, setCategorias] = useState(categoriasPadrao);
+  const [categoriasLoaded, setCategoriasLoaded] = useState(false);
   const [transacoes, setTransacoes] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadCategoriasStorage().then((saved) => {
+      if (!cancelled && saved && saved.length > 0) {
+        setCategorias(saved);
+      }
+      if (!cancelled) setCategoriasLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!categoriasLoaded) return;
+    saveCategoriasStorage(categorias);
+  }, [categorias, categoriasLoaded]);
 
   const addConta = useCallback((conta) => {
     setContas((prev) => [...prev, { ...conta, id: Date.now().toString(), saldo: conta.saldoInicial || 0 }]);
   }, []);
 
   const addCartao = useCallback((cartao) => {
-    setCartoes((prev) => [...prev, { ...cartao, id: Date.now().toString(), limite: cartao.limite || 0 }]);
+    setCartoes((prev) => [...prev, {
+      ...cartao,
+      id: Date.now().toString(),
+      limite: cartao.limite ?? 0,
+      bandeira: cartao.bandeira ?? 'Outro',
+      ativo: cartao.ativo !== false,
+    }]);
+  }, []);
+
+  const updateCartao = useCallback((id, payload) => {
+    setCartoes((prev) => prev.map((c) => (c.id === id ? { ...c, ...payload } : c)));
+  }, []);
+
+  const removeCartao = useCallback((id) => {
+    setCartoes((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
   const addCategoria = useCallback((cat) => {
-    setCategorias((prev) => [...prev, { ...cat, id: Date.now().toString() }]);
+    setCategorias((prev) => [...prev, {
+      ...cat,
+      id: Date.now().toString(),
+      icon: cat.icon || 'pricetag-outline',
+    }]);
   }, []);
 
   const addTransacao = useCallback((t) => {
@@ -111,16 +139,19 @@ export function AppProvider({ children }) {
     contas,
     cartoes,
     categorias,
+    setCategorias,
     transacoes,
     addConta,
     addCartao,
+    updateCartao,
+    removeCartao,
     addCategoria,
     addTransacao,
     updateTransacao,
     saldoContas,
     totalReceitas,
     totalDespesas,
-    hasCartoes: cartoes.length > 0,
+    hasCartoes: cartoes.filter((c) => c.ativo !== false).length > 0,
     orcamentoMensal,
     setOrcamentoMensal,
     getOrcamento,

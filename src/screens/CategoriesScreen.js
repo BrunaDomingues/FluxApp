@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { ICONE_PADRAO } from '../constants/categorias';
 
 export default function CategoriesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -21,6 +22,7 @@ export default function CategoriesScreen({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState('saida');
+  const [aba, setAba] = useState('saida'); // 'saida' = DESPESAS, 'entrada' = RECEITAS
 
   const handleSalvarCategoria = () => {
     const n = (nome || '').trim();
@@ -34,62 +36,77 @@ export default function CategoriesScreen({ navigation }) {
     setModalVisible(false);
   };
 
-  const categoriasEntrada = categorias.filter((c) => c.tipo === 'entrada');
-  const categoriasSaida = categorias.filter((c) => c.tipo === 'saida');
+  const categoriasFiltradas = categorias.filter((c) => c.tipo === aba);
+  const corAba = aba === 'entrada' ? colors.positive : colors.spending;
+
+  const getIcon = (c) => c.icon || ICONE_PADRAO;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: corAba }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Categorias</Text>
-        <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.addBtn}>
-          <Ionicons name="add" size={24} color={colors.primary} />
+        <TouchableOpacity style={styles.headerIcon}>
+          <Ionicons name="folder-open-outline" size={22} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.headerIcon}>
+          <Ionicons name="ellipsis-vertical" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.sectionTitle}>Entrada</Text>
-        {categoriasEntrada.length === 0 ? (
-          <Text style={styles.empty}>Nenhuma categoria de entrada.</Text>
+
+      <View style={[styles.tabs, { backgroundColor: corAba }]}>
+        <TouchableOpacity
+          style={[styles.tab, aba === 'saida' && styles.tabActive]}
+          onPress={() => setAba('saida')}
+        >
+          <Text style={[styles.tabText, aba === 'saida' && styles.tabTextActive]}>DESPESAS</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, aba === 'entrada' && styles.tabActiveEntrada]}
+          onPress={() => setAba('entrada')}
+        >
+          <Text style={[styles.tabTextEntrada, aba === 'entrada' && styles.tabTextActiveEntrada]}>RECEITAS</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {categoriasFiltradas.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="pricetag-outline" size={48} color={colors.textMuted} />
+            <Text style={styles.emptyText}>
+              Nenhuma categoria de {aba === 'entrada' ? 'receita' : 'despesa'}.
+            </Text>
+            <Text style={styles.emptySub}>Toque no + para criar.</Text>
+          </View>
         ) : (
-          categoriasEntrada.map((c) => (
+          categoriasFiltradas.map((c) => (
             <View key={c.id} style={styles.row}>
-              <View style={[styles.iconWrap, { backgroundColor: colors.positive + '30' }]}>
-                <Ionicons name="trending-up-outline" size={20} color={colors.positive} />
+              <View style={[styles.iconWrap, { backgroundColor: corAba + '35' }]}>
+                <Ionicons name={getIcon(c)} size={22} color={corAba} />
               </View>
               <Text style={styles.nome}>{c.nome}</Text>
+              <TouchableOpacity
+                style={styles.addIconBtn}
+                onPress={() => navigation.navigate('AddTransaction', { tipo: aba, categoriaId: c.id })}
+              >
+                <Ionicons name="add" size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.moreBtn}>
+                <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
             </View>
           ))
         )}
-        <Text style={styles.sectionTitle}>Saída</Text>
-        {categoriasSaida.length === 0 ? (
-          <Text style={styles.empty}>Nenhuma categoria de saída.</Text>
-        ) : (
-          categoriasSaida.map((c) => (
-            <View key={c.id} style={styles.row}>
-              <View style={[styles.iconWrap, { backgroundColor: colors.spending + '30' }]}>
-                <Ionicons name="trending-down-outline" size={20} color={colors.spending} />
-              </View>
-              <Text style={styles.nome}>{c.nome}</Text>
-            </View>
-          ))
-        )}
-        <TouchableOpacity
-          style={styles.buttonSecondary}
-          onPress={() => navigation.navigate('AddTransaction', { tipo: 'entrada' })}
-        >
-          <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
-          <Text style={styles.buttonSecondaryText}>Cadastrar entrada</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.buttonSecondary}
-          onPress={() => navigation.navigate('AddTransaction', { tipo: 'saida' })}
-        >
-          <Ionicons name="remove-circle-outline" size={22} color={colors.spending} />
-          <Text style={styles.buttonSecondaryText}>Cadastrar despesa</Text>
-        </TouchableOpacity>
       </ScrollView>
+
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: corAba }]}
+        onPress={() => { setTipo(aba); setModalVisible(true); }}
+      >
+        <Ionicons name="add" size={28} color={colors.textPrimary} />
+      </TouchableOpacity>
 
       <Modal visible={modalVisible} transparent animationType="fade">
         <Pressable style={styles.modalBackdrop} onPress={() => setModalVisible(false)}>
@@ -109,17 +126,17 @@ export default function CategoriesScreen({ navigation }) {
                 onPress={() => setTipo('entrada')}
               >
                 <Ionicons name="trending-up-outline" size={18} color={tipo === 'entrada' ? colors.textPrimary : colors.textMuted} />
-                <Text style={[styles.tipoBtnText, tipo === 'entrada' && styles.tipoBtnTextActive]}>Entrada</Text>
+                <Text style={[styles.tipoBtnText, tipo === 'entrada' && styles.tipoBtnTextActive]}>Receitas</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.tipoBtn, tipo === 'saida' && styles.tipoBtnActive]}
+                style={[styles.tipoBtn, tipo === 'saida' && styles.tipoBtnActiveSaida]}
                 onPress={() => setTipo('saida')}
               >
                 <Ionicons name="trending-down-outline" size={18} color={tipo === 'saida' ? colors.textPrimary : colors.textMuted} />
-                <Text style={[styles.tipoBtnText, tipo === 'saida' && styles.tipoBtnTextActive]}>Saída</Text>
+                <Text style={[styles.tipoBtnText, tipo === 'saida' && styles.tipoBtnTextActive]}>Despesas</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.button} onPress={handleSalvarCategoria}>
+            <TouchableOpacity style={[styles.button, { backgroundColor: corAba }]} onPress={handleSalvarCategoria}>
               <Text style={styles.buttonText}>Salvar</Text>
             </TouchableOpacity>
           </Pressable>
@@ -139,21 +156,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   backBtn: { padding: spacing.xs, marginRight: spacing.sm },
   title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, flex: 1 },
-  addBtn: { padding: spacing.xs },
-  content: { padding: spacing.lg, paddingBottom: spacing.xl * 2 },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginBottom: spacing.sm,
-    marginTop: spacing.md,
+  headerIcon: { padding: spacing.xs, marginLeft: spacing.xs },
+  tabs: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
   },
-  empty: { fontSize: 14, color: colors.textMuted, marginBottom: spacing.sm },
+  tab: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    borderRadius: borderRadius.sm,
+  },
+  tabActive: {
+    backgroundColor: colors.textPrimary,
+  },
+  tabActiveEntrada: {
+    backgroundColor: colors.textPrimary,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  tabTextEntrada: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  tabTextActive: {
+    color: colors.spending,
+  },
+  tabTextActiveEntrada: {
+    color: colors.positive,
+  },
+  content: {
+    padding: spacing.lg,
+    paddingBottom: 100,
+  },
+  empty: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl * 2,
+  },
+  emptyText: { fontSize: 16, color: colors.textMuted, marginTop: spacing.md },
+  emptySub: { fontSize: 14, color: colors.textMuted, marginTop: spacing.xs },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -163,25 +213,39 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
   },
-  nome: { fontSize: 16, color: colors.textPrimary, fontWeight: '500' },
-  buttonSecondary: {
-    flexDirection: 'row',
+  nome: { flex: 1, fontSize: 16, color: colors.textPrimary, fontWeight: '500' },
+  addIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.backgroundCardElevated,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.md,
-    marginTop: spacing.md,
-    backgroundColor: colors.backgroundCard,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
+    marginRight: spacing.xs,
   },
-  buttonSecondaryText: { fontSize: 16, color: colors.primary, fontWeight: '600' },
+  moreBtn: { padding: spacing.xs },
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing.xl + 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -214,11 +278,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: borderRadius.md,
   },
-  tipoBtnActive: { backgroundColor: colors.primary },
+  tipoBtnActive: { backgroundColor: colors.positive },
+  tipoBtnActiveSaida: { backgroundColor: colors.spending },
   tipoBtnText: { fontSize: 14, color: colors.textMuted },
   tipoBtnTextActive: { color: colors.textPrimary, fontWeight: '600' },
   button: {
-    backgroundColor: colors.primary,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     alignItems: 'center',
