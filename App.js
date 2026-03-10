@@ -14,6 +14,8 @@ import AddAccountScreen from './src/screens/AddAccountScreen';
 import AddCardScreen from './src/screens/AddCardScreen';
 import CategoriesScreen from './src/screens/CategoriesScreen';
 import AddTransactionScreen from './src/screens/AddTransactionScreen';
+import PlanningScreen from './src/screens/PlanningScreen';
+import DefinirOrcamentoScreen from './src/screens/DefinirOrcamentoScreen';
 import { colors } from './src/constants/theme';
 
 const Stack = createStackNavigator();
@@ -27,12 +29,14 @@ function MainTabs() {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Início" component={HomeScreen} />
+      <Tab.Screen name="Transações" component={TransactionsScreen} />
       <Tab.Screen
         name="FAB"
         component={PlaceholderScreen}
         listeners={{ tabPress: (e) => e.preventDefault() }}
       />
-      <Tab.Screen name="Transações" component={TransactionsScreen} />
+      <Tab.Screen name="Planejamento" component={PlanningScreen} />
+      <Tab.Screen name="Mais" component={PlaceholderScreen} />
     </Tab.Navigator>
   );
 }
@@ -54,6 +58,7 @@ export default function App() {
             <Stack.Screen name="AddCard" component={AddCardScreen} />
             <Stack.Screen name="Categories" component={CategoriesScreen} />
             <Stack.Screen name="AddTransaction" component={AddTransactionScreen} />
+            <Stack.Screen name="DefinirOrcamento" component={DefinirOrcamentoScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </AppProvider>

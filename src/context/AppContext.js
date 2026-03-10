@@ -32,8 +32,55 @@ export function AppProvider({ children }) {
   }, []);
 
   const addTransacao = useCallback((t) => {
-    setTransacoes((prev) => [...prev, { ...t, id: Date.now().toString(), data: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) }]);
+    const now = new Date();
+    setTransacoes((prev) => [...prev, {
+      ...t,
+      id: Date.now().toString(),
+      data: now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      mes: now.getMonth(),
+      ano: now.getFullYear(),
+    }]);
   }, []);
+
+  // Orçamento mensal: { "2026-3": { total: 4000, categorias: { "idCat": limite } } }
+  const [orcamentoMensal, setOrcamentoMensalState] = useState({});
+  const setOrcamentoMensal = useCallback((mes, ano, total, porCategoria) => {
+    const key = `${ano}-${mes}`;
+    setOrcamentoMensalState((prev) => ({ ...prev, [key]: { total: total || 0, categorias: porCategoria || {} } }));
+  }, []);
+
+  const getOrcamento = useCallback((mes, ano) => {
+    const key = `${ano}-${mes}`;
+    return orcamentoMensal[key] || { total: 0, categorias: {} };
+  }, [orcamentoMensal]);
+
+  const removeOrcamentoMensal = useCallback((mes, ano) => {
+    const key = `${ano}-${mes}`;
+    setOrcamentoMensalState((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  // Gasto por categoria no mês (apenas despesas)
+  const getGastoPorCategoriaNoMes = useCallback((mes, ano) => {
+    const despesas = transacoes.filter(
+      (t) => (t.tipo === 'saida' || t.tipo === 'despesa_cartao') && t.mes === mes && t.ano === ano
+    );
+    const porCat = {};
+    despesas.forEach((t) => {
+      const id = t.categoriaId || 'outros';
+      porCat[id] = (porCat[id] || 0) + Math.abs(t.valor || 0);
+    });
+    return porCat;
+  }, [transacoes]);
+
+  const getReceitasNoMes = useCallback((mes, ano) => {
+    return transacoes
+      .filter((t) => t.tipo === 'entrada' && t.mes === mes && t.ano === ano)
+      .reduce((s, x) => s + (x.valor || 0), 0);
+  }, [transacoes]);
 
   const saldoContas = contas.reduce((s, c) => s + (c.saldo || 0), 0);
   const totalReceitas = transacoes.filter((x) => x.tipo === 'entrada').reduce((s, x) => s + (x.valor || 0), 0);
@@ -52,6 +99,12 @@ export function AppProvider({ children }) {
     totalReceitas,
     totalDespesas,
     hasCartoes: cartoes.length > 0,
+    orcamentoMensal,
+    setOrcamentoMensal,
+    getOrcamento,
+    removeOrcamentoMensal,
+    getGastoPorCategoriaNoMes,
+    getReceitasNoMes,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

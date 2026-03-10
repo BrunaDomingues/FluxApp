@@ -15,8 +15,13 @@ export default function CustomTabBar({ state, descriptors, navigation, hasCartoe
 
   const renderTab = (route, index) => {
     const isFocused = state.index === index;
-    const label = route.name === 'Início' ? 'Início' : 'Transações';
-    const iconName = route.name === 'Início' ? 'home-outline' : 'list-outline';
+    const config = {
+      'Início': { label: 'Início', icon: 'home-outline' },
+      'Transações': { label: 'Transações', icon: 'list-outline' },
+      'Planejamento': { label: 'Planejamento', icon: 'document-text-outline' },
+      'Mais': { label: 'Mais', icon: 'ellipsis-horizontal' },
+    };
+    const { label, icon: iconName } = config[route.name] || { label: route.name, icon: 'ellipse-outline' };
 
     const onPress = () => {
       const event = navigation.emit({
@@ -42,7 +47,7 @@ export default function CustomTabBar({ state, descriptors, navigation, hasCartoe
           color={isFocused ? colors.primary : colors.textMuted}
           style={styles.tabIcon}
         />
-        <Text style={[styles.tabLabel, isFocused && styles.tabLabelFocused]}>
+        <Text style={[styles.tabLabel, isFocused && styles.tabLabelFocused]} numberOfLines={1}>
           {label}
         </Text>
       </TouchableOpacity>
@@ -54,7 +59,7 @@ export default function CustomTabBar({ state, descriptors, navigation, hasCartoe
       <View style={styles.tabBar}>
         <View style={styles.tabWrapper}>
           {state.routes.map((route, index) => {
-            if (index === 1) {
+            if (index === 2) {
               return (
                 <View key={route.key} style={styles.fabPlaceholder}>
                   <FABMenu
