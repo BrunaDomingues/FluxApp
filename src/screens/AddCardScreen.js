@@ -10,10 +10,13 @@ import {
   ScrollView,
   Alert,
   Switch,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
+import { bandeirasCartao } from '../constants/bandeiras';
 import { useApp } from '../context/AppContext';
 import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/currency';
 
@@ -28,6 +31,7 @@ export default function AddCardScreen({ navigation, route }) {
   const [limite, setLimite] = useState('');
   const [bandeira, setBandeira] = useState('Outro Cartão');
   const [ativo, setAtivo] = useState(true);
+  const [modalBandeiraVisible, setModalBandeiraVisible] = useState(false);
 
   const limiteNum = rawToNumber(limite);
 
@@ -97,18 +101,28 @@ export default function AddCardScreen({ navigation, route }) {
         {!isEditMode && (
           <>
             <Text style={styles.label}>Bandeira</Text>
-            <View style={styles.bandeiraDisplay}>
+            <TouchableOpacity
+              style={styles.bandeiraSelect}
+              onPress={() => setModalBandeiraVisible(true)}
+              activeOpacity={0.7}
+            >
               <Ionicons name="card-outline" size={20} color={colors.textMuted} />
               <Text style={styles.bandeiraText}>{bandeira}</Text>
-            </View>
+              <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
           </>
         )}
         {isEditMode && (
           <>
             <Text style={styles.label}>Bandeira</Text>
-            <View style={styles.bandeiraDisplay}>
+            <TouchableOpacity
+              style={styles.bandeiraSelect}
+              onPress={() => setModalBandeiraVisible(true)}
+              activeOpacity={0.7}
+            >
               <Text style={styles.bandeiraText}>{bandeira}</Text>
-            </View>
+              <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
           </>
         )}
         <Text style={styles.label}>Limite (opcional)</Text>
@@ -141,6 +155,39 @@ export default function AddCardScreen({ navigation, route }) {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      <Modal visible={modalBandeiraVisible} transparent animationType="fade">
+        <Pressable style={styles.modalBackdrop} onPress={() => setModalBandeiraVisible(false)}>
+          <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Selecionar bandeira</Text>
+            <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
+              {bandeirasCartao.map((b) => (
+                <TouchableOpacity
+                  key={b.id}
+                  style={[styles.modalOption, bandeira === b.nome && styles.modalOptionActive]}
+                  onPress={() => {
+                    setBandeira(b.nome);
+                    setModalBandeiraVisible(false);
+                  }}
+                >
+                  <Text style={[styles.modalOptionText, bandeira === b.nome && styles.modalOptionTextActive]}>
+                    {b.nome}
+                  </Text>
+                  {bandeira === b.nome ? (
+                    <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalCancel}
+              onPress={() => setModalBandeiraVisible(false)}
+            >
+              <Text style={styles.modalCancelText}>Fechar</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -183,7 +230,16 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.lg,
   },
-  bandeiraText: { fontSize: 16, color: colors.textPrimary },
+  bandeiraSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  bandeiraText: { flex: 1, fontSize: 16, color: colors.textPrimary },
   ativoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -207,4 +263,44 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   excluirText: { fontSize: 14, color: colors.spending, fontWeight: '600' },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+    padding: spacing.lg,
+  },
+  modalBox: {
+    backgroundColor: colors.backgroundCard,
+    borderTopLeftRadius: borderRadius.lg,
+    borderTopRightRadius: borderRadius.lg,
+    padding: spacing.lg,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  modalList: { maxHeight: 320 },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.xs,
+  },
+  modalOptionActive: {
+    backgroundColor: colors.primary + '25',
+  },
+  modalOptionText: { fontSize: 16, color: colors.textPrimary },
+  modalOptionTextActive: { fontWeight: '600', color: colors.primary },
+  modalCancel: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  modalCancelText: { fontSize: 16, color: colors.textMuted, fontWeight: '600' },
 });

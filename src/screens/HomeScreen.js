@@ -80,7 +80,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.emptyCartaoSub}>Melhore seu controle financeiro agora!</Text>
               <TouchableOpacity
                 style={styles.addCartaoButton}
-                onPress={() => navigation.navigate('SelectCardType')}
+                onPress={() => navigation.navigate('AddCard')}
               >
                 <Text style={styles.addCartaoButtonText}>ADICIONAR NOVO CARTÃO</Text>
               </TouchableOpacity>
@@ -102,7 +102,7 @@ export default function HomeScreen({ navigation }) {
               ))}
               <TouchableOpacity
                 style={styles.addCartaoButtonSecondary}
-                onPress={() => navigation.navigate('SelectCardType')}
+                onPress={() => navigation.navigate('AddCard')}
               >
                 <Ionicons name="add" size={20} color={colors.secondary} />
                 <Text style={styles.addContaButtonText}>ADICIONAR OUTRO CARTÃO</Text>
