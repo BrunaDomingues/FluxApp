@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { formatBRL, parseToRaw, rawToNumber } from '../utils/currency';
 
 export default function AddAccountScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -21,7 +22,7 @@ export default function AddAccountScreen({ navigation }) {
   const [nome, setNome] = useState('');
   const [saldoInicial, setSaldoInicial] = useState('');
 
-  const saldoNum = parseFloat((saldoInicial || '0').replace(',', '.')) || 0;
+  const saldoNum = rawToNumber(saldoInicial);
 
   const handleSalvar = () => {
     const n = (nome || '').trim();
@@ -56,11 +57,11 @@ export default function AddAccountScreen({ navigation }) {
         <Text style={styles.label}>Saldo inicial (opcional)</Text>
         <TextInput
           style={styles.input}
-          placeholder="0,00"
+          placeholder="R$ 0,00"
           placeholderTextColor={colors.textMuted}
-          value={saldoInicial}
-          onChangeText={setSaldoInicial}
-          keyboardType="decimal-pad"
+          value={saldoInicial === '' ? '' : formatBRL(saldoInicial)}
+          onChangeText={(text) => setSaldoInicial(parseToRaw(text))}
+          keyboardType="numeric"
         />
         <TouchableOpacity style={styles.button} onPress={handleSalvar}>
           <Text style={styles.buttonText}>Salvar</Text>

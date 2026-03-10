@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { formatBRL, parseToRaw, rawToNumber } from '../utils/currency';
 
 export default function AddTransactionScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -30,7 +31,7 @@ export default function AddTransactionScreen({ navigation, route }) {
   const [descricao, setDescricao] = useState('');
 
   const categoriasFiltradas = isTransferencia ? [] : categorias.filter((c) => c.tipo === tipo);
-  const valorNum = parseFloat((valor || '0').replace(',', '.')) || 0;
+  const valorNum = rawToNumber(valor);
 
   useEffect(() => {
     if (isTransferencia && contas.length >= 2 && contaId === contaDestinoId) {
@@ -91,11 +92,11 @@ export default function AddTransactionScreen({ navigation, route }) {
         <Text style={styles.label}>Valor (R$)</Text>
         <TextInput
           style={styles.input}
-          placeholder="0,00"
+          placeholder="R$ 0,00"
           placeholderTextColor={colors.textMuted}
-          value={valor}
-          onChangeText={setValor}
-          keyboardType="decimal-pad"
+          value={valor === '' ? '' : formatBRL(valor)}
+          onChangeText={(text) => setValor(parseToRaw(text))}
+          keyboardType="numeric"
         />
         <Text style={styles.label}>Descrição (opcional)</Text>
         <TextInput

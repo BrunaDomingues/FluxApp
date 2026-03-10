@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { formatBRL, parseToRaw, rawToNumber } from '../utils/currency';
 
 export default function AddCardScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -21,7 +22,7 @@ export default function AddCardScreen({ navigation }) {
   const [nome, setNome] = useState('');
   const [limite, setLimite] = useState('');
 
-  const limiteNum = parseFloat((limite || '0').replace(',', '.')) || 0;
+  const limiteNum = rawToNumber(limite);
 
   const handleSalvar = () => {
     const n = (nome || '').trim();
@@ -56,11 +57,11 @@ export default function AddCardScreen({ navigation }) {
         <Text style={styles.label}>Limite (opcional)</Text>
         <TextInput
           style={styles.input}
-          placeholder="0,00"
+          placeholder="R$ 0,00"
           placeholderTextColor={colors.textMuted}
-          value={limite}
-          onChangeText={setLimite}
-          keyboardType="decimal-pad"
+          value={limite === '' ? '' : formatBRL(limite)}
+          onChangeText={(text) => setLimite(parseToRaw(text))}
+          keyboardType="numeric"
         />
         <TouchableOpacity style={styles.button} onPress={handleSalvar}>
           <Text style={styles.buttonText}>Salvar</Text>

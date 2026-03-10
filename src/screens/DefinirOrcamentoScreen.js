@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/currency';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const SUGESTAO_PCT = 0.8;
@@ -38,7 +39,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
   const [step, setStep] = useState(1);
   const [receitaMensal, setReceitaMensal] = useState(() => {
     const r = receitaMesAnterior || orcAtual.total;
-    return r > 0 ? String(r) : '';
+    return r > 0 ? numberToRaw(r) : '';
   });
   const [total, setTotal] = useState('');
   const [totalSlider, setTotalSlider] = useState(0);
@@ -46,8 +47,8 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
   const [porCategoria, setPorCategoria] = useState({});
   const [modalMeta, setModalMeta] = useState(null);
 
-  const receitaNum = useMemo(() => parseFloat((receitaMensal || '0').replace(',', '.')) || 0, [receitaMensal]);
-  const totalNum = useMemo(() => parseFloat((total || '0').replace(',', '.')) || 0, [total]);
+  const receitaNum = useMemo(() => rawToNumber(receitaMensal), [receitaMensal]);
+  const totalNum = useMemo(() => rawToNumber(total), [total]);
   const totalAlocado = useMemo(
     () => Object.keys(categoriasSelecionadas).filter((id) => categoriasSelecionadas[id]).reduce((s, id) => s + (porCategoria[id] || 0), 0),
     [categoriasSelecionadas, porCategoria]
@@ -64,7 +65,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
   useEffect(() => {
     if (step === 2 && receitaNum > 0 && total === '') {
       const sugerido = Math.round(receitaNum * SUGESTAO_PCT * 100) / 100;
-      setTotal(String(sugerido));
+      setTotal(numberToRaw(sugerido));
       setTotalSlider(sugerido);
     }
   }, [step, receitaNum]);
@@ -72,7 +73,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
   const avancarStep1 = () => {
     if (receitaNum > 0) {
       const sugerido = Math.round(receitaNum * SUGESTAO_PCT * 100) / 100;
-      setTotal(String(sugerido));
+      setTotal(numberToRaw(sugerido));
       setTotalSlider(sugerido);
     }
     setStep(2);
@@ -91,12 +92,12 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
   };
 
   const abrirMeta = (cat) => {
-    setModalMeta({ cat, valor: porCategoria[cat.id] ?? '' });
+    setModalMeta({ cat, valor: numberToRaw(porCategoria[cat.id] || 0) });
   };
 
   const salvarMeta = () => {
     if (!modalMeta) return;
-    const v = parseFloat(String(modalMeta.valor).replace(',', '.')) || 0;
+    const v = rawToNumber(modalMeta.valor);
     setPorCategoria((prev) => ({ ...prev, [modalMeta.cat.id]: v }));
     setCategoriasSelecionadas((prev) => ({ ...prev, [modalMeta.cat.id]: true }));
     setModalMeta(null);
@@ -120,7 +121,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
 
   const handleSliderChange = (v) => {
     const valor = Math.round(v * 100) / 100;
-    setTotal(String(valor));
+    setTotal(numberToRaw(valor));
     setTotalSlider(valor);
   };
 
@@ -145,9 +146,9 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
             style={styles.inputGrande}
             placeholder="R$ 0,00"
             placeholderTextColor={colors.textMuted}
-            value={receitaMensal}
-            onChangeText={setReceitaMensal}
-            keyboardType="decimal-pad"
+            value={receitaMensal === '' ? '' : formatBRL(receitaMensal)}
+            onChangeText={(text) => setReceitaMensal(parseToRaw(text))}
+            keyboardType="numeric"
           />
           <Text style={styles.nota}>
             *Valor referente às receitas recebidas no mês anterior, esse valor também pode ser editado.
@@ -191,9 +192,13 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
             style={styles.input}
             placeholder="Ou digite o valor"
             placeholderTextColor={colors.textMuted}
-            value={total}
-            onChangeText={(v) => { setTotal(v); setTotalSlider(parseFloat(v.replace(',', '.')) || 0); }}
-            keyboardType="decimal-pad"
+            value={total === '' ? '' : formatBRL(total)}
+            onChangeText={(text) => {
+              const raw = parseToRaw(text);
+              setTotal(raw);
+              setTotalSlider(rawToNumber(raw));
+            }}
+            keyboardType="numeric"
           />
           <TouchableOpacity style={styles.proximoBtn} onPress={avancarStep2}>
             <Ionicons name="arrow-forward" size={28} color={colors.textPrimary} />
@@ -281,14 +286,14 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
                 <Text style={styles.modalLabel}>Valor de gasto para esta categoria</Text>
                 <TextInput
                   style={styles.modalInput}
-                  value={String(modalMeta.valor)}
-                  onChangeText={(v) => setModalMeta((m) => m ? { ...m, valor: v } : null)}
-                  keyboardType="decimal-pad"
-                  placeholder="0,00"
+                  value={modalMeta.valor === '' ? '' : formatBRL(modalMeta.valor)}
+                  onChangeText={(text) => setModalMeta((m) => m ? { ...m, valor: parseToRaw(text) } : null)}
+                  keyboardType="numeric"
+                  placeholder="R$ 0,00"
                   placeholderTextColor={colors.textMuted}
                 />
                 <Text style={styles.modalRestante}>
-                  Valor restante após: R$ {Math.max(0, valorRestante + (porCategoria[modalMeta.cat.id] || 0) - (parseFloat(String(modalMeta.valor).replace(',', '.')) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  Valor restante após: R$ {Math.max(0, valorRestante + (porCategoria[modalMeta.cat.id] || 0) - rawToNumber(modalMeta.valor)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </Text>
               </>
             )}
