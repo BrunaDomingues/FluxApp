@@ -40,6 +40,8 @@ export function AppProvider({ children }) {
       limite: cartao.limite ?? 0,
       bandeira: cartao.bandeira ?? 'Outro',
       ativo: cartao.ativo !== false,
+      diaFechamento: cartao.diaFechamento ?? null,
+      diaVencimento: cartao.diaVencimento ?? null,
     }]);
   }, []);
 

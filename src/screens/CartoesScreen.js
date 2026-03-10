@@ -70,6 +70,13 @@ export default function CartoesScreen({ navigation }) {
                   <Text style={styles.cardLimite}>
                     Limite: R$ {(c.limite ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </Text>
+                  {(c.diaFechamento != null || c.diaVencimento != null) && (
+                    <Text style={styles.cardDias}>
+                      {c.diaFechamento != null && `Fecha dia ${c.diaFechamento}`}
+                      {c.diaFechamento != null && c.diaVencimento != null && ' · '}
+                      {c.diaVencimento != null && `Vence dia ${c.diaVencimento}`}
+                    </Text>
+                  )}
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
               </TouchableOpacity>
@@ -97,7 +104,7 @@ export default function CartoesScreen({ navigation }) {
       </ScrollView>
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => navigation.navigate('SelectCardType')}
+        onPress={() => navigation.navigate('AddCard')}
       >
         <Ionicons name="add" size={28} color={colors.textPrimary} />
       </TouchableOpacity>
@@ -151,6 +158,7 @@ const styles = StyleSheet.create({
   cardNomeInativo: { color: colors.textMuted },
   cardBandeira: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
   cardLimite: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  cardDias: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   cardActions: {
     flexDirection: 'row',
     alignItems: 'center',

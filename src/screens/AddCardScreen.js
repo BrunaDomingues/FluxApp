@@ -32,6 +32,19 @@ export default function AddCardScreen({ navigation, route }) {
   const [bandeira, setBandeira] = useState('Outro Cartão');
   const [ativo, setAtivo] = useState(true);
   const [modalBandeiraVisible, setModalBandeiraVisible] = useState(false);
+  const [diaFechamento, setDiaFechamento] = useState('');
+  const [diaVencimento, setDiaVencimento] = useState('');
+  const [modalDiaVisible, setModalDiaVisible] = useState(false);
+  const [modalDiaTipo, setModalDiaTipo] = useState(null); // 'fechamento' | 'vencimento'
+
+  const DIAS_OPCOES = Array.from({ length: 31 }, (_, i) => i + 1);
+
+  const parseDia = (v) => {
+    const d = parseInt(String(v).replace(/\D/g, ''), 10);
+    return d >= 1 && d <= 31 ? d : null;
+  };
+  const diaFechamentoNum = parseDia(diaFechamento);
+  const diaVencimentoNum = parseDia(diaVencimento);
 
   const limiteNum = rawToNumber(limite);
 
@@ -41,6 +54,8 @@ export default function AddCardScreen({ navigation, route }) {
       setLimite(editar.limite != null && editar.limite > 0 ? numberToRaw(editar.limite) : '');
       setBandeira(editar.bandeira || 'Outro Cartão');
       setAtivo(editar.ativo !== false);
+      setDiaFechamento(editar.diaFechamento != null ? String(editar.diaFechamento) : '');
+      setDiaVencimento(editar.diaVencimento != null ? String(editar.diaVencimento) : '');
     } else if (bandeiraParam) {
       setBandeira(bandeiraParam);
     }
@@ -53,9 +68,23 @@ export default function AddCardScreen({ navigation, route }) {
       return;
     }
     if (isEditMode) {
-      updateCartao(editar.id, { nome: n, limite: limiteNum, bandeira, ativo });
+      updateCartao(editar.id, {
+        nome: n,
+        limite: limiteNum,
+        bandeira,
+        ativo,
+        diaFechamento: diaFechamentoNum,
+        diaVencimento: diaVencimentoNum,
+      });
     } else {
-      addCartao({ nome: n, limite: limiteNum, bandeira, ativo });
+      addCartao({
+        nome: n,
+        limite: limiteNum,
+        bandeira,
+        ativo,
+        diaFechamento: diaFechamentoNum,
+        diaVencimento: diaVencimentoNum,
+      });
     }
     navigation.goBack();
   };
@@ -134,6 +163,30 @@ export default function AddCardScreen({ navigation, route }) {
           onChangeText={(text) => setLimite(parseToRaw(text))}
           keyboardType="numeric"
         />
+        <Text style={styles.label}>Dia de fechamento (opcional)</Text>
+        <TouchableOpacity
+          style={styles.bandeiraSelect}
+          onPress={() => { setModalDiaTipo('fechamento'); setModalDiaVisible(true); }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="calendar-outline" size={20} color={colors.textMuted} />
+          <Text style={[styles.bandeiraText, !diaFechamento && styles.placeholderText]}>
+            {diaFechamento ? `Dia ${diaFechamento}` : 'Selecionar dia'}
+          </Text>
+          <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+        <Text style={styles.label}>Dia de vencimento (opcional)</Text>
+        <TouchableOpacity
+          style={styles.bandeiraSelect}
+          onPress={() => { setModalDiaTipo('vencimento'); setModalDiaVisible(true); }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="calendar-outline" size={20} color={colors.textMuted} />
+          <Text style={[styles.bandeiraText, !diaVencimento && styles.placeholderText]}>
+            {diaVencimento ? `Dia ${diaVencimento}` : 'Selecionar dia'}
+          </Text>
+          <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
+        </TouchableOpacity>
         {isEditMode && (
           <View style={styles.ativoRow}>
             <Text style={styles.label}>Cartão ativo</Text>
@@ -182,6 +235,63 @@ export default function AddCardScreen({ navigation, route }) {
             <TouchableOpacity
               style={styles.modalCancel}
               onPress={() => setModalBandeiraVisible(false)}
+            >
+              <Text style={styles.modalCancelText}>Fechar</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={modalDiaVisible} transparent animationType="fade">
+        <Pressable style={styles.modalBackdrop} onPress={() => setModalDiaVisible(false)}>
+          <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>
+              {modalDiaTipo === 'fechamento' ? 'Dia de fechamento' : 'Dia de vencimento'}
+            </Text>
+            <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
+              <TouchableOpacity
+                style={[styles.modalOption, (modalDiaTipo === 'fechamento' ? !diaFechamento : !diaVencimento) && styles.modalOptionActive]}
+                onPress={() => {
+                  if (modalDiaTipo === 'fechamento') setDiaFechamento('');
+                  else setDiaVencimento('');
+                  setModalDiaVisible(false);
+                }}
+              >
+                <Text style={[styles.modalOptionText, (modalDiaTipo === 'fechamento' ? !diaFechamento : !diaVencimento) && styles.modalOptionTextActive]}>
+                  Nenhum
+                </Text>
+                {(modalDiaTipo === 'fechamento' ? !diaFechamento : !diaVencimento) ? (
+                  <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                ) : null}
+              </TouchableOpacity>
+              {DIAS_OPCOES.map((d) => {
+                const valor = String(d);
+                const selecionado = modalDiaTipo === 'fechamento'
+                  ? diaFechamento === valor
+                  : diaVencimento === valor;
+                return (
+                  <TouchableOpacity
+                    key={d}
+                    style={[styles.modalOption, selecionado && styles.modalOptionActive]}
+                    onPress={() => {
+                      if (modalDiaTipo === 'fechamento') setDiaFechamento(valor);
+                      else setDiaVencimento(valor);
+                      setModalDiaVisible(false);
+                    }}
+                  >
+                    <Text style={[styles.modalOptionText, selecionado && styles.modalOptionTextActive]}>
+                      Dia {d}
+                    </Text>
+                    {selecionado ? (
+                      <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalCancel}
+              onPress={() => setModalDiaVisible(false)}
             >
               <Text style={styles.modalCancelText}>Fechar</Text>
             </TouchableOpacity>
@@ -240,6 +350,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   bandeiraText: { flex: 1, fontSize: 16, color: colors.textPrimary },
+  placeholderText: { color: colors.textMuted },
   ativoRow: {
     flexDirection: 'row',
     alignItems: 'center',
