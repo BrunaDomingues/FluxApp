@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from './Icons';
 import FABMenu from './FABMenu';
 import { colors, spacing } from '../constants/theme';
 
@@ -9,7 +9,7 @@ const TAB_BAR_HEIGHT = 64;
 const FAB_SIZE = 56;
 const ICON_SIZE = 24;
 
-export default function CustomTabBar({ state, descriptors, navigation }) {
+export default function CustomTabBar({ state, descriptors, navigation, hasCartoes }) {
   const insets = useSafeAreaInsets();
   const bottomSafe = insets.bottom || 12;
 
@@ -58,9 +58,11 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
               return (
                 <View key={route.key} style={styles.fabPlaceholder}>
                   <FABMenu
-                    onAddReceita={() => {}}
-                    onAddDespesa={() => {}}
-                    onAddTransferencia={() => {}}
+                    hasCartoes={hasCartoes}
+                    onAddReceita={() => navigation.navigate('AddTransaction', { tipo: 'entrada' })}
+                    onAddDespesa={() => navigation.navigate('AddTransaction', { tipo: 'saida' })}
+                    onAddDespesaCartao={() => navigation.navigate('AddTransaction', { tipo: 'saida', despesaCartao: true })}
+                    onAddTransferencia={() => navigation.navigate('AddTransaction', { tipo: 'transferencia' })}
                   />
                 </View>
               );

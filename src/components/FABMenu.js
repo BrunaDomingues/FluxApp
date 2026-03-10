@@ -7,16 +7,27 @@ import {
   Animated,
   Modal,
   Pressable,
+  Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius } from '../constants/theme';
+import Ionicons from './Icons';
+import { colors } from '../constants/theme';
 
 const FAB_SIZE = 56;
-const MENU_ICON_SIZE = 22;
+const BOLINHA_SIZE = 48;
+const ARC_RADIUS = 90;
+const ARC_ANGLE_SPREAD = 100; // graus totais (ex: -50 a +50)
 
-export default function FABMenu({ onAddReceita, onAddDespesa, onAddTransferencia }) {
+export default function FABMenu({
+  onAddReceita,
+  onAddDespesa,
+  onAddDespesaCartao,
+  onAddTransferencia,
+  hasCartoes,
+}) {
   const [open, setOpen] = useState(false);
   const anim = React.useRef(new Animated.Value(0)).current;
+  const { width: SCREEN_WIDTH } = Dimensions.get('window');
+  const centerX = SCREEN_WIDTH / 2;
 
   const toggle = () => {
     const toValue = open ? 0 : 1;
@@ -31,14 +42,21 @@ export default function FABMenu({ onAddReceita, onAddDespesa, onAddTransferencia
 
   const handleAction = (fn) => {
     toggle();
-    setTimeout(() => fn?.(), 200);
+    setTimeout(() => fn?.(), 150);
   };
 
-  const menuItems = [
+  const baseItems = [
     { label: 'Receita', icon: 'trending-up-outline', onPress: onAddReceita, color: colors.positive },
-    { label: 'Despesa', icon: 'trending-down-outline', onPress: onAddDespesa, color: colors.spending },
+    ...(hasCartoes
+      ? [{ label: 'Despesa cartão', icon: 'card-outline', onPress: onAddDespesaCartao, color: colors.positive }]
+      : []),
     { label: 'Transferência', icon: 'swap-horizontal-outline', onPress: onAddTransferencia, color: colors.secondary },
+    { label: 'Despesa', icon: 'trending-down-outline', onPress: onAddDespesa, color: colors.spending },
   ];
+
+  const numItems = baseItems.length;
+  const startAngle = -ARC_ANGLE_SPREAD / 2;
+  const stepAngle = numItems > 1 ? ARC_ANGLE_SPREAD / (numItems - 1) : 0;
 
   return (
     <>
@@ -49,35 +67,45 @@ export default function FABMenu({ onAddReceita, onAddDespesa, onAddTransferencia
         onRequestClose={toggle}
       >
         <Pressable style={styles.backdrop} onPress={toggle}>
-          <View style={styles.menuContainer}>
-            {menuItems.map((item) => (
-              <TouchableOpacity
-                key={item.label}
-                style={[styles.menuItem, { backgroundColor: item.color }]}
-                onPress={() => handleAction(item.onPress)}
-                activeOpacity={0.8}
-              >
-                <Ionicons name={item.icon} size={MENU_ICON_SIZE} color={colors.textPrimary} />
-                <Text style={styles.menuLabel}>{item.label}</Text>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.arcContainer} pointerEvents="box-none">
+            {baseItems.map((item, index) => {
+              const angleDeg = startAngle + index * stepAngle;
+              const angleRad = (angleDeg * Math.PI) / 180;
+              const x = centerX + ARC_RADIUS * Math.sin(angleRad) - BOLINHA_SIZE / 2;
+              const y = ARC_RADIUS * Math.cos(angleRad) - BOLINHA_SIZE / 2;
+              return (
+                <TouchableOpacity
+                  key={item.label}
+                  style={[
+                    styles.bolinha,
+                    {
+                      backgroundColor: item.color,
+                      left: x,
+                      top: Math.max(0, y),
+                    },
+                  ]}
+                  onPress={() => handleAction(item.onPress)}
+                  activeOpacity={0.9}
+                >
+                  <Ionicons name={item.icon} size={24} color={colors.textPrimary} />
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </Pressable>
       </Modal>
 
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={toggle}
-        activeOpacity={0.9}
-      >
+      <TouchableOpacity style={styles.fab} onPress={toggle} activeOpacity={0.9}>
         <Animated.View
           style={{
-            transform: [{
-              rotate: anim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0deg', '45deg'],
-              }),
-            }],
+            transform: [
+              {
+                rotate: anim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0deg', '45deg'],
+                }),
+              },
+            ],
           }}
         >
           <Ionicons name="add" size={28} color={colors.textPrimary} />
@@ -92,7 +120,7 @@ const styles = StyleSheet.create({
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 8,
@@ -105,25 +133,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
-    paddingBottom: 100,
-    paddingHorizontal: spacing.lg,
-  },
-  menuContainer: {
-    backgroundColor: colors.backgroundCardElevated,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    paddingVertical: spacing.sm,
-  },
-  menuItem: {
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    paddingBottom: 90,
   },
-  menuLabel: {
-    fontSize: 16,
-    color: colors.textPrimary,
-    fontWeight: '600',
+  arcContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 100,
+    height: ARC_RADIUS + BOLINHA_SIZE,
+  },
+  bolinha: {
+    position: 'absolute',
+    width: BOLINHA_SIZE,
+    height: BOLINHA_SIZE,
+    borderRadius: BOLINHA_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
 });
