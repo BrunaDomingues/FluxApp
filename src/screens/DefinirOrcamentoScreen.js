@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,16 +12,17 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-const SLIDER_MAX = 10000;
 const SUGESTAO_PCT = 0.8;
+const SLIDER_MAX = 50000;
 
-const iconPorCat = { Alimentação: 'restaurant-outline', Moradia: 'home-outline', Transporte: 'car-outline', Lazer: 'happy-outline' };
+const iconPorCat = { Alimentação: 'restaurant-outline', Moradia: 'home-outline', Transporte: 'car-outline', Lazer: 'happy-outline', Saúde: 'medkit-outline', Educação: 'school-outline' };
 function getIcon(nome) { return iconPorCat[nome] || 'pricetag-outline'; }
 
 export default function DefinirOrcamentoScreen({ navigation, route }) {
@@ -30,27 +31,22 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
   const mes = route?.params?.mes ?? new Date().getMonth();
   const ano = route?.params?.ano ?? new Date().getFullYear();
   const orcAtual = getOrcamento(mes, ano);
-  const receitasMes = getReceitasNoMes(mes, ano);
-  const sugerido80 = Math.round(receitasMes * SUGESTAO_PCT * 100) / 100;
+  const mesAnterior = mes === 0 ? 11 : mes - 1;
+  const anoAnterior = mes === 0 ? ano - 1 : ano;
+  const receitaMesAnterior = getReceitasNoMes(mesAnterior, anoAnterior);
 
   const [step, setStep] = useState(1);
-  const [ganhosInput, setGanhosInput] = useState(receitasMes > 0 ? String(receitasMes) : '');
-  const [total, setTotal] = useState(() => orcAtual.total > 0 ? String(orcAtual.total) : (sugerido80 > 0 ? String(sugerido80) : ''));
-  const [totalSlider, setTotalSlider] = useState(() => orcAtual.total || sugerido80 || 4000);
-  const [categoriasSelecionadas, setCategoriasSelecionadas] = useState(() => {
-    const ids = {};
-    Object.keys(orcAtual.categorias || {}).forEach((id) => { ids[id] = true; });
-    return ids;
+  const [receitaMensal, setReceitaMensal] = useState(() => {
+    const r = receitaMesAnterior || orcAtual.total;
+    return r > 0 ? String(r) : '';
   });
-  const [porCategoria, setPorCategoria] = useState(() => {
-    const cat = {};
-    categorias.filter((c) => c.tipo === 'saida').forEach((c) => {
-      cat[c.id] = orcAtual.categorias[c.id] ?? 0;
-    });
-    return cat;
-  });
+  const [total, setTotal] = useState('');
+  const [totalSlider, setTotalSlider] = useState(0);
+  const [categoriasSelecionadas, setCategoriasSelecionadas] = useState({});
+  const [porCategoria, setPorCategoria] = useState({});
   const [modalMeta, setModalMeta] = useState(null);
 
+  const receitaNum = useMemo(() => parseFloat((receitaMensal || '0').replace(',', '.')) || 0, [receitaMensal]);
   const totalNum = useMemo(() => parseFloat((total || '0').replace(',', '.')) || 0, [total]);
   const totalAlocado = useMemo(
     () => Object.keys(categoriasSelecionadas).filter((id) => categoriasSelecionadas[id]).reduce((s, id) => s + (porCategoria[id] || 0), 0),
@@ -59,15 +55,35 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
   const valorRestante = Math.max(0, totalNum - totalAlocado);
   const categoriasSaida = categorias.filter((c) => c.tipo === 'saida');
 
-  const aplicar80 = () => {
-    const g = parseFloat((ganhosInput || '0').replace(',', '.')) || 0;
-    if (g <= 0) {
-      Alert.alert('Informe seus ganhos', 'Digite o valor dos ganhos do mês para sugerir 80%.');
+  const sliderMin = 0;
+  const sliderMax = step === 2
+    ? Math.max(receitaNum > 0 ? receitaNum : SLIDER_MAX, totalNum, 100)
+    : SLIDER_MAX;
+  const sliderValue = Math.min(sliderMax, Math.max(sliderMin, totalNum));
+
+  useEffect(() => {
+    if (step === 2 && receitaNum > 0 && total === '') {
+      const sugerido = Math.round(receitaNum * SUGESTAO_PCT * 100) / 100;
+      setTotal(String(sugerido));
+      setTotalSlider(sugerido);
+    }
+  }, [step, receitaNum]);
+
+  const avancarStep1 = () => {
+    if (receitaNum > 0) {
+      const sugerido = Math.round(receitaNum * SUGESTAO_PCT * 100) / 100;
+      setTotal(String(sugerido));
+      setTotalSlider(sugerido);
+    }
+    setStep(2);
+  };
+
+  const avancarStep2 = () => {
+    if (totalNum <= 0) {
+      Alert.alert('Atenção', 'Informe o valor máximo de gastos.');
       return;
     }
-    const v = Math.round(g * SUGESTAO_PCT * 100) / 100;
-    setTotal(String(v));
-    setTotalSlider(v);
+    setStep(3);
   };
 
   const toggleCategoria = (id) => {
@@ -75,7 +91,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
   };
 
   const abrirMeta = (cat) => {
-    setModalMeta({ cat, valor: porCategoria[cat.id] || 0 });
+    setModalMeta({ cat, valor: porCategoria[cat.id] ?? '' });
   };
 
   const salvarMeta = () => {
@@ -88,20 +104,25 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
 
   const handleSalvar = () => {
     if (totalNum <= 0) {
-      Alert.alert('Atenção', 'Informe o orçamento total.');
+      Alert.alert('Atenção', 'Orçamento inválido.');
       return;
     }
     const categoriasObj = {};
     Object.keys(categoriasSelecionadas).forEach((id) => {
-      if (categoriasSelecionadas[id] && (porCategoria[id] || 0) > 0) {
-        categoriasObj[id] = porCategoria[id];
+      if (categoriasSelecionadas[id]) {
+        const val = porCategoria[id] || 0;
+        if (val > 0) categoriasObj[id] = val;
       }
     });
     setOrcamentoMensal(mes, ano, totalNum, categoriasObj);
     navigation.goBack();
   };
 
-  const pctSlider = Math.min(100, (totalSlider / SLIDER_MAX) * 100);
+  const handleSliderChange = (v) => {
+    const valor = Math.round(v * 100) / 100;
+    setTotal(String(valor));
+    setTotalSlider(valor);
+  };
 
   return (
     <KeyboardAvoidingView
@@ -115,56 +136,76 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
         <Text style={styles.title}>Novo Planejamento Mensal</Text>
       </View>
 
+      {/* Etapa 1: Receita mensal */}
       {step === 1 && (
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.stepTitle}>Planejamento total</Text>
-          <Text style={styles.stepSub}>Ótimo! Agora, sua meta total de gastos para este mês é...</Text>
-          <Text style={styles.valorGrande}>R$ {totalNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
-
-          <Text style={styles.label}>Ganhos do mês (R$) – opcional</Text>
+          <Text style={styles.stepTitle}>Planejamento inicial</Text>
+          <Text style={styles.stepSub}>Vamos orçar! Comece nos dizendo qual é sua receita mensal total.</Text>
           <TextInput
-            style={styles.input}
-            placeholder="Ex: 5000"
+            style={styles.inputGrande}
+            placeholder="R$ 0,00"
             placeholderTextColor={colors.textMuted}
-            value={ganhosInput}
-            onChangeText={setGanhosInput}
+            value={receitaMensal}
+            onChangeText={setReceitaMensal}
             keyboardType="decimal-pad"
           />
-          <TouchableOpacity style={styles.btn80} onPress={aplicar80}>
-            <Text style={styles.btn80Text}>Sugerir 80% dos ganhos</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.label}>Ou defina o total manualmente (R$)</Text>
-          <View style={styles.sliderWrap}>
-            <View style={styles.sliderTrack}>
-              <View style={[styles.sliderFill, { width: `${pctSlider}%` }]} />
-              <View style={[styles.sliderThumb, { left: `${pctSlider}%` }]} />
-            </View>
-            <Text style={styles.sliderLabels}>R$ 0 — R$ {SLIDER_MAX.toLocaleString('pt-BR')}</Text>
-          </View>
-          <TextInput
-            style={styles.input}
-            placeholder="Valor total"
-            placeholderTextColor={colors.textMuted}
-            value={total}
-            onChangeText={(v) => { setTotal(v); const n = parseFloat(v.replace(',', '.')) || 0; setTotalSlider(n); }}
-            keyboardType="decimal-pad"
-          />
-
-          <Text style={styles.sugestaoText}>
-            Sugerimos que seus gastos mensais não ultrapassem 80% do valor de seus ganhos, mas sinta-se à vontade para estabelecer seu limite.
+          <Text style={styles.nota}>
+            *Valor referente às receitas recebidas no mês anterior, esse valor também pode ser editado.
           </Text>
-
-          <TouchableOpacity style={styles.proximoBtn} onPress={() => setStep(2)}>
+          <TouchableOpacity style={styles.linkPorque}>
+            <Text style={styles.linkPorqueText}>POR QUE PRECISAMOS SABER DISSO?</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.proximoBtn} onPress={avancarStep1}>
             <Ionicons name="arrow-forward" size={28} color={colors.textPrimary} />
           </TouchableOpacity>
         </ScrollView>
       )}
 
+      {/* Etapa 2: Valor máximo de gastos (80% padrão) */}
       {step === 2 && (
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.stepTitle}>Categorias e sub-categorias</Text>
-          <Text style={styles.stepSub}>Escolha para quais categorias você gostaria de definir orçamentos.</Text>
+          <Text style={styles.stepTitle}>Valor máximo de gastos</Text>
+          <Text style={styles.stepSub}>
+            {receitaNum > 0
+              ? `Sua meta total de gastos para este mês. Sugerimos 80% da sua receita (R$ ${Math.round(receitaNum * SUGESTAO_PCT * 100) / 100}), mas você pode alterar.`
+              : 'Sua meta total de gastos para este mês. Digite o valor ou use a barra.'}
+          </Text>
+          <Text style={styles.valorGrande}>R$ {totalNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
+          <View style={styles.sliderWrap}>
+            <Slider
+              style={styles.slider}
+              minimumValue={sliderMin}
+              maximumValue={sliderMax}
+              value={sliderValue}
+              onValueChange={handleSliderChange}
+              minimumTrackTintColor={colors.secondary}
+              maximumTrackTintColor={colors.backgroundCardElevated}
+              thumbTintColor={colors.secondary}
+              step={sliderMax > 1000 ? 10 : 1}
+            />
+            <Text style={styles.sliderLabels}>
+              R$ {sliderMin.toLocaleString('pt-BR')} — R$ {sliderMax.toLocaleString('pt-BR')}
+            </Text>
+          </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Ou digite o valor"
+            placeholderTextColor={colors.textMuted}
+            value={total}
+            onChangeText={(v) => { setTotal(v); setTotalSlider(parseFloat(v.replace(',', '.')) || 0); }}
+            keyboardType="decimal-pad"
+          />
+          <TouchableOpacity style={styles.proximoBtn} onPress={avancarStep2}>
+            <Ionicons name="arrow-forward" size={28} color={colors.textPrimary} />
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+
+      {/* Etapa 3: Escolher categorias */}
+      {step === 3 && (
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={styles.stepTitle}>Categorias e subcategorias</Text>
+          <Text style={styles.stepSub}>Escolha para quais categorias você gostaria de definir orçamento.</Text>
           {categoriasSaida.map((cat) => (
             <TouchableOpacity
               key={cat.id}
@@ -181,23 +222,28 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
               </View>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity style={styles.proximoBtn} onPress={() => setStep(3)}>
+          <TouchableOpacity style={styles.proximoBtn} onPress={() => setStep(4)}>
             <Ionicons name="arrow-forward" size={28} color={colors.textPrimary} />
           </TouchableOpacity>
         </ScrollView>
       )}
 
-      {step === 3 && (
+      {/* Etapa 4: Metas e valor restante */}
+      {step === 4 && (
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.resumoRow}>
-            <Text style={styles.resumoLabel}>Total</Text>
-            <Text style={styles.resumoValor}>R$ {totalNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
+          <Text style={styles.stepTitle}>Metas e Orçamentos</Text>
+          <View style={styles.totalCard}>
+            <Text style={styles.totalCardValor}>R$ {totalNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
+            <Text style={styles.totalCardLabel}>Total</Text>
           </View>
           <View style={styles.resumoRow}>
+            <Ionicons name="diamond-outline" size={20} color={colors.secondary} />
             <Text style={styles.resumoLabel}>Valor restante</Text>
             <Text style={styles.resumoValor}>R$ {valorRestante.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
           </View>
-          <Text style={styles.metasIntro}>Está na hora de definir suas metas. Atribua o valor que desejar a cada categoria selecionada.</Text>
+          <Text style={styles.metasIntro}>
+            Está na hora de definir suas metas. Atribua o valor que desejar a cada categoria selecionada. O valor é descontado do restante.
+          </Text>
 
           {categoriasSaida.filter((c) => categoriasSelecionadas[c.id]).map((cat) => (
             <TouchableOpacity key={cat.id} style={styles.metaRow} onPress={() => abrirMeta(cat)}>
@@ -209,7 +255,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
             </TouchableOpacity>
           ))}
 
-          <TouchableOpacity style={styles.addCatBtn} onPress={() => setStep(2)}>
+          <TouchableOpacity style={styles.addCatBtn} onPress={() => setStep(3)}>
             <Ionicons name="add-circle-outline" size={22} color={colors.secondary} />
             <Text style={styles.addCatBtnText}>ADICIONAR CATEGORIA</Text>
           </TouchableOpacity>
@@ -232,6 +278,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
                   </View>
                   <Text style={styles.catNome}>{modalMeta.cat.nome}</Text>
                 </View>
+                <Text style={styles.modalLabel}>Valor de gasto para esta categoria</Text>
                 <TextInput
                   style={styles.modalInput}
                   value={String(modalMeta.valor)}
@@ -240,6 +287,9 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
                   placeholder="0,00"
                   placeholderTextColor={colors.textMuted}
                 />
+                <Text style={styles.modalRestante}>
+                  Valor restante após: R$ {Math.max(0, valorRestante + (porCategoria[modalMeta.cat.id] || 0) - (parseFloat(String(modalMeta.valor).replace(',', '.')) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Text>
               </>
             )}
             <View style={styles.modalBtns}>
@@ -272,44 +322,39 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xl * 2 },
   stepTitle: { fontSize: 22, fontWeight: '700', color: colors.secondary, marginBottom: spacing.sm },
-  stepSub: { fontSize: 14, color: colors.textMuted, marginBottom: spacing.lg },
+  stepSub: { fontSize: 14, color: colors.textMuted, marginBottom: spacing.lg, lineHeight: 20 },
+  inputGrande: {
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.md,
+    padding: spacing.lg,
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  nota: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.md, fontStyle: 'italic' },
+  linkPorque: { marginBottom: spacing.xl },
+  linkPorqueText: { fontSize: 14, fontWeight: '600', color: colors.secondary },
   valorGrande: { fontSize: 32, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.lg },
-  label: { fontSize: 14, color: colors.textMuted, marginBottom: spacing.xs },
   input: {
     backgroundColor: colors.backgroundCard,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     fontSize: 18,
     color: colors.textPrimary,
-    marginBottom: spacing.md,
-  },
-  btn80: {
-    alignSelf: 'flex-start',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
     marginBottom: spacing.lg,
   },
-  btn80Text: { fontSize: 14, fontWeight: '600', color: colors.secondary },
   sliderWrap: { marginBottom: spacing.md },
+  slider: { width: '100%', height: 40 },
   sliderTrack: {
     height: 8,
     backgroundColor: colors.backgroundCardElevated,
     borderRadius: 4,
     marginBottom: spacing.xs,
-    position: 'relative',
+    overflow: 'hidden',
   },
-  sliderFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: colors.secondary, borderRadius: 4 },
-  sliderThumb: {
-    position: 'absolute',
-    top: -6,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.secondary,
-    marginLeft: -10,
-  },
+  sliderFill: { height: '100%', backgroundColor: colors.secondary, borderRadius: 4 },
   sliderLabels: { fontSize: 12, color: colors.textMuted },
-  sugestaoText: { fontSize: 13, color: colors.textMuted, marginBottom: spacing.xl, lineHeight: 20 },
   proximoBtn: {
     alignSelf: 'flex-end',
     width: 56,
@@ -347,10 +392,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioChecked: { backgroundColor: colors.secondary, borderColor: colors.secondary },
-  resumoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
-  resumoLabel: { fontSize: 16, color: colors.textMuted },
+  totalCard: {
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.md,
+    padding: spacing.lg,
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  totalCardValor: { fontSize: 24, fontWeight: '700', color: colors.textPrimary },
+  totalCardLabel: { fontSize: 14, color: colors.textMuted, marginTop: 4 },
+  resumoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  resumoLabel: { fontSize: 16, color: colors.textMuted, flex: 1 },
   resumoValor: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
-  metasIntro: { fontSize: 14, color: colors.textMuted, marginTop: spacing.md, marginBottom: spacing.lg },
+  metasIntro: { fontSize: 14, color: colors.textMuted, marginBottom: spacing.lg },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -382,14 +441,16 @@ const styles = StyleSheet.create({
   modalBox: { backgroundColor: colors.backgroundCard, borderRadius: borderRadius.lg, padding: spacing.lg },
   modalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.lg },
   modalCatRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  modalLabel: { fontSize: 14, color: colors.textMuted, marginBottom: spacing.xs },
   modalInput: {
     backgroundColor: colors.background,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     fontSize: 24,
     color: colors.textPrimary,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
+  modalRestante: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.lg },
   modalBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.lg },
   modalBtnCancel: { padding: spacing.sm },
   modalBtnCancelText: { fontSize: 14, fontWeight: '600', color: colors.textMuted },
