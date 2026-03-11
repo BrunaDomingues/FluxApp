@@ -28,7 +28,7 @@ export default function FinanciamentosScreen({ navigation }) {
       </View>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: (spacing.xl * 2) + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         {financiamentos.length === 0 ? (

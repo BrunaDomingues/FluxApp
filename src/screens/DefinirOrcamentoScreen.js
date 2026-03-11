@@ -142,7 +142,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
 
       {/* Etapa 1: Receita mensal */}
       {step === 1 && (
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]} keyboardShouldPersistTaps="handled">
           <Text style={styles.stepTitle}>Planejamento inicial</Text>
           <Text style={styles.stepSub}>Vamos orçar! Comece nos dizendo qual é sua receita mensal total.</Text>
           <TextInput
@@ -167,7 +167,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
 
       {/* Etapa 2: Valor máximo de gastos (80% padrão) */}
       {step === 2 && (
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]} keyboardShouldPersistTaps="handled">
           <Text style={styles.stepTitle}>Valor máximo de gastos</Text>
           <Text style={styles.stepSub}>
             {receitaNum > 0
@@ -211,7 +211,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
 
       {/* Etapa 3: Escolher categorias */}
       {step === 3 && (
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]} keyboardShouldPersistTaps="handled">
           <Text style={styles.stepTitle}>Categorias e subcategorias</Text>
           <Text style={styles.stepSub}>Escolha para quais categorias você gostaria de definir orçamento.</Text>
           {categoriasSaida.map((cat) => (
@@ -238,7 +238,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
 
       {/* Etapa 4: Metas e valor restante */}
       {step === 4 && (
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]} keyboardShouldPersistTaps="handled">
           <Text style={styles.stepTitle}>Metas e Orçamentos</Text>
           <View style={styles.totalCard}>
             <Text style={styles.totalCardValor}>R$ {totalNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>

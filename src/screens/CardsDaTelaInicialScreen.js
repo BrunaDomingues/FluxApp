@@ -74,7 +74,7 @@ export default function CardsDaTelaInicialScreen({ navigation }) {
       </View>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: (spacing.xl * 2) + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         {orderedList.map((item, index) => {

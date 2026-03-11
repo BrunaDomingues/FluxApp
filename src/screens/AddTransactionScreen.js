@@ -197,7 +197,7 @@ export default function AddTransactionScreen({ navigation, route }) {
         </TouchableOpacity>
         <Text style={styles.title}>{title}</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>Valor (R$)</Text>
         <TextInput
           style={styles.input}

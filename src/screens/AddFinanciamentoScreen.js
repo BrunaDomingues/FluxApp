@@ -66,7 +66,7 @@ export default function AddFinanciamentoScreen({ navigation }) {
       </View>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: 100 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: 100 + (insets.bottom || 12) }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

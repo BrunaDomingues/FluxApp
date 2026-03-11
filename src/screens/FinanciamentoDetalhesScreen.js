@@ -111,7 +111,7 @@ export default function FinanciamentoDetalhesScreen({ navigation, route }) {
       </View>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: 120 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: 120 + (insets.bottom || 12) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.resumoCard}>

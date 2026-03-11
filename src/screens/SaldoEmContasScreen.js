@@ -71,7 +71,7 @@ export default function SaldoEmContasScreen({ navigation, route }) {
         ) : null}
       </TouchableOpacity>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]} showsVerticalScrollIndicator={false}>
         {/* Gráfico fluxo de caixa no ano */}
         <GraficoFluxoAnual values={valoresGrafico} width={CHART_WIDTH} ano={anoAtual} />
         {mesesComDados.map((m) => (

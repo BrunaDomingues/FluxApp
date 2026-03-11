@@ -96,7 +96,7 @@ export default function TransactionsScreen({ navigation, route }) {
       </View>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: (spacing.xl * 2) + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>

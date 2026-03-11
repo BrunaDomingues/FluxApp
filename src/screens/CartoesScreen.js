@@ -42,7 +42,7 @@ export default function CartoesScreen({ navigation }) {
       </View>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 100 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         {cartoes.length === 0 ? (

@@ -411,7 +411,7 @@ export default function HomeScreen({ navigation }) {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: (spacing.xl * 2) + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header: perfil | mês | presente */}

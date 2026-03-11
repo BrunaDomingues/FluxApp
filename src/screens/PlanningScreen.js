@@ -104,7 +104,7 @@ export default function PlanningScreen({ navigation }) {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: (spacing.xl * 2) + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         {!temOrcamento ? (
