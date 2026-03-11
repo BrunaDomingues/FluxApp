@@ -247,7 +247,51 @@ export function AppProvider({ children }) {
     });
   }, []);
 
-  // Orçamento mensal: { "2026-3": { total: 4000, categorias: { "idCat": limite } } }
+  const removeTransacao = useCallback((id) => {
+    const getDeltas = (t) => {
+      const d = {};
+      if (!t) return d;
+      if (t.descricao === 'Transferência enviada' && t.contaId) d[t.contaId] = -Math.abs(t.valor || 0);
+      if (t.descricao === 'Transferência recebida' && t.contaId) d[t.contaId] = t.valor || 0;
+      if (t.tipo === 'entrada' && t.contaId) d[t.contaId] = t.valor || 0;
+      if (t.tipo === 'saida' && t.contaId) d[t.contaId] = -Math.abs(t.valor || 0);
+      return d;
+    };
+    const mergeDeltas = (a, b) => {
+      const r = { ...a };
+      Object.keys(b).forEach((k) => { r[k] = (r[k] || 0) + b[k]; });
+      return r;
+    };
+    const negateDeltas = (d) => {
+      const r = {};
+      Object.keys(d).forEach((k) => { r[k] = -d[k]; });
+      return r;
+    };
+
+    setTransacoes((prev) => {
+      const t = prev.find((x) => x.id === id);
+      if (!t) return prev;
+      let reverseDeltas = {};
+      let idsToRemove = [id];
+      if (t.transferenciaId) {
+        const parceiros = prev.filter((x) => x.transferenciaId === t.transferenciaId);
+        idsToRemove = parceiros.map((x) => x.id);
+        parceiros.forEach((p) => { reverseDeltas = mergeDeltas(reverseDeltas, getDeltas(p)); });
+      } else {
+        reverseDeltas = getDeltas(t);
+      }
+      reverseDeltas = negateDeltas(reverseDeltas);
+      const idsSet = new Set(idsToRemove);
+      setContas((contasPrev) =>
+        contasPrev.map((c) => {
+          const delta = reverseDeltas[c.id] || 0;
+          if (delta === 0) return c;
+          return { ...c, saldo: (c.saldo || 0) + delta };
+        })
+      );
+      return prev.filter((x) => !idsSet.has(x.id));
+    });
+  }, []);
   const [orcamentoMensal, setOrcamentoMensalState] = useState({});
   const setOrcamentoMensal = useCallback((mes, ano, total, porCategoria) => {
     const key = `${ano}-${mes}`;
@@ -389,6 +433,7 @@ export function AppProvider({ children }) {
     addCategoria,
     addTransacao,
     updateTransacao,
+    removeTransacao,
     saldoContas,
     saldoTodasContas,
     totalReceitas,

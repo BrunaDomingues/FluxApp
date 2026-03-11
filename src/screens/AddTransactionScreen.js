@@ -29,7 +29,7 @@ const ANOS = buildAnos();
 
 export default function AddTransactionScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { categorias, contas, cartoes, addTransacao, updateTransacao, transacoes } = useApp();
+  const { categorias, contas, cartoes, addTransacao, updateTransacao, removeTransacao, transacoes } = useApp();
   const editar = route?.params?.editar;
   const isEditMode = !!editar;
 
@@ -170,6 +170,19 @@ export default function AddTransactionScreen({ navigation, route }) {
       }),
     });
     navigation.goBack();
+  };
+
+  const handleExcluir = () => {
+    Alert.alert(
+      'Excluir transação',
+      isTransferencia
+        ? 'Excluir esta transferência? As duas movimentações serão removidas.'
+        : `Excluir ${tipo === 'entrada' ? 'esta receita' : 'esta despesa'}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Excluir', style: 'destructive', onPress: () => { removeTransacao(editar.id); navigation.goBack(); } },
+      ]
+    );
   };
 
   const title = isEditMode
@@ -414,6 +427,12 @@ export default function AddTransactionScreen({ navigation, route }) {
         <TouchableOpacity style={styles.button} onPress={handleSalvar}>
           <Text style={styles.buttonText}>Salvar</Text>
         </TouchableOpacity>
+        {isEditMode && (
+          <TouchableOpacity style={styles.excluirBtn} onPress={handleExcluir}>
+            <Ionicons name="trash-outline" size={20} color={colors.spending} />
+            <Text style={styles.excluirText}>Excluir transação</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </View>
   );
@@ -513,4 +532,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
+  excluirBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    padding: spacing.md,
+  },
+  excluirText: { fontSize: 15, color: colors.spending, fontWeight: '600' },
 });
