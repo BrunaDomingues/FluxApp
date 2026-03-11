@@ -110,7 +110,7 @@ export default function HomeScreen({ navigation }) {
                                 {p.vencida ? `Venceu em ${formatBRLShort(p.dataVen)}` : p.diffDias === 0 ? 'Vence hoje' : `Vence em ${formatBRLShort(p.dataVen)} (${p.diffDias} dias)`}
                               </Text>
                             </View>
-                            <Text style={styles.parcelaValor}>R$ {Math.abs(p.valor || 0).toFixed(2).replace('.', ',')}</Text>
+                            <Text style={styles.parcelaValor}>R$ {Math.abs(p.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
                             <TouchableOpacity
                               style={styles.parcelaPagoBtn}
                               onPress={() => updateTransacao(p.id, { pago: true })}
@@ -130,7 +130,7 @@ export default function HomeScreen({ navigation }) {
                               <Text style={styles.parcelaDesc}>{p.descricao}</Text>
                               <Text style={styles.parcelaCartao}>{p.cartaoNome} • Venc. {formatBRLShort(p.dataVen)}</Text>
                             </View>
-                            <Text style={styles.parcelaValor}>R$ {Math.abs(p.valor || 0).toFixed(2).replace('.', ',')}</Text>
+                            <Text style={styles.parcelaValor}>R$ {Math.abs(p.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
                             <TouchableOpacity
                               style={styles.parcelaPagoBtn}
                               onPress={() => updateTransacao(p.id, { pago: true })}

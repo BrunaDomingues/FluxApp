@@ -169,7 +169,7 @@ export default function PlanningScreen({ navigation }) {
               )}
             </View>
             <Text style={styles.progressText}>
-              R$ {totalGasto.toFixed(2)} de R$ {totalOrcamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R$ {totalGasto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ {totalOrcamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </Text>
           </View>
         </View>
@@ -208,7 +208,7 @@ export default function PlanningScreen({ navigation }) {
                   )}
                 </View>
                 <Text style={styles.progressText}>
-                  R$ {gasto.toFixed(2)} de R$ {limite.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  R$ {gasto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ {limite.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </Text>
                 {excedeu > 0 && (
                   <Text style={styles.excedeuText}>

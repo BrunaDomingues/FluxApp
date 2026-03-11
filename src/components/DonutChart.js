@@ -86,7 +86,7 @@ export default function DonutChart({ data = [] }) {
           <View key={`${seg.label}-${i}`} style={styles.legendRow}>
             <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
             <Text style={styles.legendText}>
-              {seg.label} R$ {seg.value.toFixed(2)} ({seg.pct.toFixed(0)}%)
+              {seg.label} R$ {seg.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({seg.pct.toFixed(0)}%)
             </Text>
           </View>
         ))}

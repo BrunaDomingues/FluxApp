@@ -171,7 +171,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
           <Text style={styles.stepTitle}>Valor máximo de gastos</Text>
           <Text style={styles.stepSub}>
             {receitaNum > 0
-              ? `Sua meta total de gastos para este mês. Sugerimos 80% da sua receita (R$ ${Math.round(receitaNum * SUGESTAO_PCT * 100) / 100}), mas você pode alterar.`
+              ? `Sua meta total de gastos para este mês. Sugerimos 80% da sua receita (R$ ${(Math.round(receitaNum * SUGESTAO_PCT * 100) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}), mas você pode alterar.`
               : 'Sua meta total de gastos para este mês. Digite o valor ou use a barra.'}
           </Text>
           <Text style={styles.valorGrande}>R$ {totalNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>

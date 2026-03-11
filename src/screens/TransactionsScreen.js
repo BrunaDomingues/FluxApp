@@ -135,7 +135,7 @@ export default function TransactionsScreen({ navigation, route }) {
                     (t.tipo === 'entrada' || (t.valor && t.valor > 0)) ? styles.valorEntrada : styles.valorSaida,
                   ]}
                 >
-                  {t.valor >= 0 ? '+' : ''}R$ {Math.abs(t.valor || 0).toFixed(2)}
+                  {t.valor >= 0 ? '+' : ''}R$ {Math.abs(t.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </Text>
               </TouchableOpacity>
             ))
