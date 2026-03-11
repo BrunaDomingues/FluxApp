@@ -52,7 +52,7 @@ export default function SaldoEmContasScreen({ navigation, route }) {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
@@ -71,7 +71,11 @@ export default function SaldoEmContasScreen({ navigation, route }) {
         ) : null}
       </TouchableOpacity>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: 80 + insets.bottom }]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Gráfico fluxo de caixa no ano */}
         <GraficoFluxoAnual values={valoresGrafico} width={CHART_WIDTH} ano={anoAtual} />
         {mesesComDados.map((m) => (
