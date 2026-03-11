@@ -33,6 +33,14 @@ export function AppProvider({ children }) {
     setContas((prev) => [...prev, { ...conta, id: Date.now().toString(), saldo: conta.saldoInicial || 0 }]);
   }, []);
 
+  const updateConta = useCallback((id, payload) => {
+    setContas((prev) => prev.map((c) => (c.id === id ? { ...c, ...payload } : c)));
+  }, []);
+
+  const removeConta = useCallback((id) => {
+    setContas((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
   const addCartao = useCallback((cartao) => {
     setCartoes((prev) => [...prev, {
       ...cartao,
@@ -63,33 +71,82 @@ export function AppProvider({ children }) {
 
   const addTransacao = useCallback((t) => {
     const now = new Date();
-    setTransacoes((prev) => [...prev, {
+    const nova = {
       ...t,
       id: Date.now().toString(),
       data: now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
       mes: now.getMonth(),
       ano: now.getFullYear(),
-    }]);
+    };
+    setTransacoes((prev) => [...prev, nova]);
+    // Atualizar saldo da(s) conta(s)
+    setContas((prev) => {
+      const next = prev.map((c) => {
+        let delta = 0;
+        if (t.descricao === 'Transferência enviada' && c.id === t.contaId) delta = -(Math.abs(t.valor || 0));
+        if (t.descricao === 'Transferência recebida' && c.id === t.contaId) delta = t.valor || 0;
+        if (t.tipo === 'entrada' && c.id === t.contaId) delta = t.valor || 0;
+        if ((t.tipo === 'saida') && c.id === t.contaId) delta = -Math.abs(t.valor || 0);
+        if (delta === 0) return c;
+        return { ...c, saldo: (c.saldo || 0) + delta };
+      });
+      return next;
+    });
   }, []);
 
   const updateTransacao = useCallback((id, payload) => {
+    const getDeltas = (t) => {
+      const d = {};
+      if (!t) return d;
+      if (t.descricao === 'Transferência enviada' && t.contaId) d[t.contaId] = -Math.abs(t.valor || 0);
+      if (t.descricao === 'Transferência recebida' && t.contaId) d[t.contaId] = t.valor || 0;
+      if (t.tipo === 'entrada' && t.contaId) d[t.contaId] = t.valor || 0;
+      if (t.tipo === 'saida' && t.contaId) d[t.contaId] = -Math.abs(t.valor || 0);
+      return d;
+    };
+    const mergeDeltas = (a, b) => {
+      const r = { ...a };
+      Object.keys(b).forEach((k) => { r[k] = (r[k] || 0) + b[k]; });
+      return r;
+    };
+    const negateDeltas = (d) => {
+      const r = {};
+      Object.keys(d).forEach((k) => { r[k] = -d[k]; });
+      return r;
+    };
+
     setTransacoes((prev) => {
       const t = prev.find((x) => x.id === id);
       if (!t) return prev;
+      let reverseDeltas = {};
+      let newTransacoes = prev;
       if (t.transferenciaId) {
         const par = prev.find((x) => x.transferenciaId === t.transferenciaId && x.id !== id);
+        reverseDeltas = mergeDeltas(getDeltas(t), getDeltas(par));
+        reverseDeltas = negateDeltas(reverseDeltas);
         const valor = Math.abs(payload.valor != null ? payload.valor : t.valor);
         const contaOrigem = payload.contaId != null ? payload.contaId : (t.descricao === 'Transferência enviada' ? t.contaId : par?.contaId);
         const contaDestino = payload.contaDestinoId != null ? payload.contaDestinoId : (t.descricao === 'Transferência recebida' ? t.contaId : par?.contaId);
-        return prev.map((x) => {
+        newTransacoes = prev.map((x) => {
           if (x.transferenciaId !== t.transferenciaId) return x;
-          if (x.descricao === 'Transferência enviada') {
-            return { ...x, valor: -valor, contaId: contaOrigem };
-          }
+          if (x.descricao === 'Transferência enviada') return { ...x, valor: -valor, contaId: contaOrigem };
           return { ...x, valor, contaId: contaDestino };
         });
+      } else {
+        reverseDeltas = negateDeltas(getDeltas(t));
+        newTransacoes = prev.map((x) => (x.id === id ? { ...x, ...payload } : x));
       }
-      return prev.map((x) => (x.id === id ? { ...x, ...payload } : x));
+      const updatedT = newTransacoes.find((x) => x.id === id);
+      const updatedPar = updatedT?.transferenciaId ? newTransacoes.find((x) => x.transferenciaId === updatedT.transferenciaId && x.id !== id) : null;
+      const forwardDeltas = mergeDeltas(getDeltas(updatedT), getDeltas(updatedPar));
+      setContas((contasPrev) =>
+        contasPrev.map((c) => {
+          const delta = (reverseDeltas[c.id] || 0) + (forwardDeltas[c.id] || 0);
+          if (delta === 0) return c;
+          return { ...c, saldo: (c.saldo || 0) + delta };
+        })
+      );
+      return newTransacoes;
     });
   }, []);
 
@@ -144,6 +201,8 @@ export function AppProvider({ children }) {
     setCategorias,
     transacoes,
     addConta,
+    updateConta,
+    removeConta,
     addCartao,
     updateCartao,
     removeCartao,

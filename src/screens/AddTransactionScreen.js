@@ -15,6 +15,7 @@ import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/currency';
+import { ICONE_PADRAO } from '../constants/categorias';
 
 export default function AddTransactionScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -30,20 +31,30 @@ export default function AddTransactionScreen({ navigation, route }) {
 
   const [valor, setValor] = useState('');
   const [categoriaId, setCategoriaId] = useState(route?.params?.categoriaId ?? null);
-  const [contaId, setContaId] = useState(contas[0]?.id || null);
+  const [contaId, setContaId] = useState(route?.params?.contaId || contas[0]?.id || null);
   const [contaDestinoId, setContaDestinoId] = useState(contas[1]?.id || null);
   const [cartaoId, setCartaoId] = useState(cartoes[0]?.id || null);
   const [descricao, setDescricao] = useState('');
+  const [modalCategoriaVisible, setModalCategoriaVisible] = useState(false);
 
+  const contasVisiveis = contas.filter((c) => !c.arquivada);
   const categoriasFiltradas = isTransferencia ? [] : categorias.filter((c) => c.tipo === tipo);
   const valorNum = rawToNumber(valor);
 
+  // Garantir conta válida para receita/despesa quando há contas visíveis
   useEffect(() => {
-    if (isTransferencia && contas.length >= 2 && contaId === contaDestinoId) {
-      const outra = contas.find((c) => c.id !== contaId);
+    if (isCartao || isTransferencia) return;
+    if (contasVisiveis.length > 0 && (!contaId || !contasVisiveis.some((c) => c.id === contaId))) {
+      setContaId(contasVisiveis[0].id);
+    }
+  }, [contasVisiveis.length, isCartao, isTransferencia]);
+
+  useEffect(() => {
+    if (isTransferencia && contasVisiveis.length >= 2 && contaId === contaDestinoId) {
+      const outra = contasVisiveis.find((c) => c.id !== contaId);
       if (outra) setContaDestinoId(outra.id);
     }
-  }, [contaId, isTransferencia, contas.length]);
+  }, [contaId, isTransferencia, contasVisiveis.length]);
 
   useEffect(() => {
     if (!editar) return;
@@ -61,13 +72,17 @@ export default function AddTransactionScreen({ navigation, route }) {
         setContaDestinoId(editar.contaId || null);
       }
     } else {
-      setContaDestinoId(contas[1]?.id || null);
+      setContaDestinoId(contasVisiveis[1]?.id || contas[1]?.id || null);
     }
   }, [editar?.id]);
 
   const handleSalvar = () => {
     if (valorNum <= 0) {
       Alert.alert('Atenção', 'Informe o valor.');
+      return;
+    }
+    if (!isCartao && !isTransferencia && !contaId) {
+      Alert.alert('Atenção', 'Selecione uma conta para abater ou somar o valor.');
       return;
     }
     if (isEditMode) {
@@ -96,12 +111,12 @@ export default function AddTransactionScreen({ navigation, route }) {
       return;
     }
     if (isTransferencia) {
-      if (contas.length < 2) {
+      if (contasVisiveis.length < 2) {
         Alert.alert('Atenção', 'Cadastre pelo menos duas contas para transferir.');
         return;
       }
       const contaOrigemId = contaId;
-      const destId = contaDestinoId || contas.find((c) => c.id !== contaOrigemId)?.id;
+      const destId = contaDestinoId || contasVisiveis.find((c) => c.id !== contaOrigemId)?.id;
       if (!destId || destId === contaOrigemId) {
         Alert.alert('Atenção', 'Selecione contas diferentes.');
         return;
@@ -159,11 +174,11 @@ export default function AddTransactionScreen({ navigation, route }) {
           value={descricao}
           onChangeText={setDescricao}
         />
-        {isTransferencia && contas.length >= 2 && (
+        {isTransferencia && contasVisiveis.length >= 2 && (
           <>
             <Text style={styles.label}>Conta de origem</Text>
             <View style={styles.optionsRow}>
-              {contas.map((c) => (
+              {contasVisiveis.map((c) => (
                 <TouchableOpacity
                   key={c.id}
                   style={[styles.optionChip, contaId === c.id && styles.optionChipActive]}
@@ -175,7 +190,7 @@ export default function AddTransactionScreen({ navigation, route }) {
             </View>
             <Text style={styles.label}>Conta de destino</Text>
             <View style={styles.optionsRow}>
-              {contas.filter((c) => c.id !== contaId).map((c) => (
+              {contasVisiveis.filter((c) => c.id !== contaId).map((c) => (
                 <TouchableOpacity
                   key={c.id}
                   style={[styles.optionChip, contaDestinoId === c.id && styles.optionChipActive]}
@@ -187,11 +202,11 @@ export default function AddTransactionScreen({ navigation, route }) {
             </View>
           </>
         )}
-        {!isCartao && !isTransferencia && contas.length > 1 && (
+        {!isCartao && !isTransferencia && contasVisiveis.length > 0 && (
           <>
             <Text style={styles.label}>Conta</Text>
             <View style={styles.optionsRow}>
-              {contas.map((c) => (
+              {contasVisiveis.map((c) => (
                 <TouchableOpacity
                   key={c.id}
                   style={[styles.optionChip, contaId === c.id && styles.optionChipActive]}
@@ -222,22 +237,56 @@ export default function AddTransactionScreen({ navigation, route }) {
         {!isTransferencia && (
         <>
         <Text style={styles.label}>Categoria</Text>
-        <View style={styles.catList}>
-          {categoriasFiltradas.map((c) => (
-            <TouchableOpacity
-              key={c.id}
-              style={[styles.catRow, categoriaId === c.id && styles.catRowActive]}
-              onPress={() => setCategoriaId(c.id)}
-            >
-              <Ionicons
-                name={c.tipo === 'entrada' ? 'trending-up-outline' : 'trending-down-outline'}
-                size={20}
-                color={categoriaId === c.id ? colors.textPrimary : colors.textMuted}
-              />
-              <Text style={[styles.catNome, categoriaId === c.id && styles.catNomeActive]}>{c.nome}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <TouchableOpacity
+          style={styles.selectCategoria}
+          onPress={() => setModalCategoriaVisible(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={categoriaId ? (categorias.find((c) => c.id === categoriaId)?.icon || ICONE_PADRAO) : 'pricetag-outline'}
+            size={20}
+            color={categoriaId ? colors.primary : colors.textMuted}
+          />
+          <Text style={[styles.selectCategoriaText, !categoriaId && styles.selectCategoriaPlaceholder]}>
+            {categoriaId ? categorias.find((c) => c.id === categoriaId)?.nome : 'Selecionar categoria'}
+          </Text>
+          <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+
+        <Modal visible={modalCategoriaVisible} transparent animationType="fade">
+          <Pressable style={styles.modalBackdrop} onPress={() => setModalCategoriaVisible(false)}>
+            <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+              <Text style={styles.modalTitle}>Selecionar categoria</Text>
+              <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent} keyboardShouldPersistTaps="handled">
+                {categoriasFiltradas.map((c) => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[styles.modalOption, categoriaId === c.id && styles.modalOptionActive]}
+                    onPress={() => {
+                      setCategoriaId(c.id);
+                      setModalCategoriaVisible(false);
+                    }}
+                  >
+                    <Ionicons
+                      name={c.icon || ICONE_PADRAO}
+                      size={20}
+                      color={categoriaId === c.id ? colors.primary : colors.textMuted}
+                    />
+                    <Text style={[styles.modalOptionText, categoriaId === c.id && styles.modalOptionTextActive]}>
+                      {c.nome}
+                    </Text>
+                    {categoriaId === c.id ? (
+                      <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                    ) : null}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setModalCategoriaVisible(false)}>
+                <Text style={styles.modalCancelText}>Fechar</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
         </>
         )}
         <TouchableOpacity style={styles.button} onPress={handleSalvar}>
@@ -280,19 +329,58 @@ const styles = StyleSheet.create({
   optionChipActive: { backgroundColor: colors.primary },
   optionChipText: { fontSize: 14, color: colors.textSecondary },
   optionChipTextActive: { color: colors.textPrimary, fontWeight: '600' },
-  catList: { marginBottom: spacing.lg },
-  catRow: {
+  selectCategoria: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
+    gap: spacing.sm,
     backgroundColor: colors.backgroundCard,
     borderRadius: borderRadius.md,
-    marginBottom: spacing.xs,
-    gap: spacing.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
   },
-  catRowActive: { backgroundColor: colors.primary + '40', borderWidth: 1, borderColor: colors.primary },
-  catNome: { fontSize: 16, color: colors.textSecondary },
-  catNomeActive: { color: colors.textPrimary, fontWeight: '600' },
+  selectCategoriaText: { flex: 1, fontSize: 16, color: colors.textPrimary },
+  selectCategoriaPlaceholder: { color: colors.textMuted },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+    padding: spacing.lg,
+  },
+  modalBox: {
+    backgroundColor: colors.backgroundCard,
+    borderTopLeftRadius: borderRadius.lg,
+    borderTopRightRadius: borderRadius.lg,
+    padding: spacing.lg,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  modalList: { maxHeight: 320 },
+  modalListContent: { paddingBottom: spacing.md },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.xs,
+  },
+  modalOptionActive: {
+    backgroundColor: colors.primary + '25',
+  },
+  modalOptionText: { flex: 1, fontSize: 16, color: colors.textPrimary },
+  modalOptionTextActive: { fontWeight: '600', color: colors.primary },
+  modalCancel: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  modalCancelText: { fontSize: 16, color: colors.textMuted, fontWeight: '600' },
   button: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.md,

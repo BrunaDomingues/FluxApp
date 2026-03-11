@@ -10,6 +10,9 @@ import CustomTabBar from './src/components/CustomTabBar';
 import HomeScreen from './src/screens/HomeScreen';
 import TransactionsScreen from './src/screens/TransactionsScreen';
 import PlaceholderScreen from './src/screens/PlaceholderScreen';
+import ContasScreen from './src/screens/ContasScreen';
+import SaldoEmContasScreen from './src/screens/SaldoEmContasScreen';
+import ContaDetalhesScreen from './src/screens/ContaDetalhesScreen';
 import AddAccountScreen from './src/screens/AddAccountScreen';
 import AddCardScreen from './src/screens/AddCardScreen';
 import CartoesScreen from './src/screens/CartoesScreen';
@@ -56,6 +59,9 @@ export default function App() {
             }}
           >
             <Stack.Screen name="MainTabs" component={MainTabs} />
+            <Stack.Screen name="Contas" component={ContasScreen} />
+            <Stack.Screen name="SaldoEmContas" component={SaldoEmContasScreen} />
+            <Stack.Screen name="ContaDetalhes" component={ContaDetalhesScreen} />
             <Stack.Screen name="AddAccount" component={AddAccountScreen} />
             <Stack.Screen name="AddCard" component={AddCardScreen} />
             <Stack.Screen name="Cartoes" component={CartoesScreen} />

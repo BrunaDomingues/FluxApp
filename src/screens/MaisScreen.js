@@ -16,7 +16,7 @@ const ABA_GERAL = 'GERAL';
 const ABA_SOBRE = 'SOBRE';
 
 const opcoesGerenciar = [
-  { id: 'contas', label: 'Contas', icon: 'business-outline', screen: 'AddAccount' },
+  { id: 'contas', label: 'Contas', icon: 'business-outline', screen: 'Contas' },
   { id: 'cartao', label: 'Cartão de crédito', icon: 'card-outline', screen: 'Cartoes' },
   { id: 'categorias', label: 'Categorias', icon: 'pricetag-outline', screen: 'Categories' },
   { id: 'tags', label: 'Tags', icon: 'pricetags-outline', screen: null },
