@@ -24,6 +24,9 @@ import PlanningScreen from './src/screens/PlanningScreen';
 import MaisScreen from './src/screens/MaisScreen';
 import DefinirOrcamentoScreen from './src/screens/DefinirOrcamentoScreen';
 import CardsDaTelaInicialScreen from './src/screens/CardsDaTelaInicialScreen';
+import FinanciamentosScreen from './src/screens/FinanciamentosScreen';
+import AddFinanciamentoScreen from './src/screens/AddFinanciamentoScreen';
+import FinanciamentoDetalhesScreen from './src/screens/FinanciamentoDetalhesScreen';
 import { colors } from './src/constants/theme';
 
 const Stack = createStackNavigator();
@@ -73,6 +76,9 @@ export default function App() {
             <Stack.Screen name="AddTransaction" component={AddTransactionScreen} />
             <Stack.Screen name="DefinirOrcamento" component={DefinirOrcamentoScreen} />
             <Stack.Screen name="CardsDaTelaInicial" component={CardsDaTelaInicialScreen} />
+            <Stack.Screen name="Financiamentos" component={FinanciamentosScreen} />
+            <Stack.Screen name="AddFinanciamento" component={AddFinanciamentoScreen} />
+            <Stack.Screen name="FinanciamentoDetalhes" component={FinanciamentoDetalhesScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </AppProvider>

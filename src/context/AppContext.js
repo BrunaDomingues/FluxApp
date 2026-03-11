@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { categoriasPadrao } from '../constants/categorias';
 import { loadCategorias as loadCategoriasStorage, saveCategorias as saveCategoriasStorage } from '../utils/storage';
 import { loadCardsTelaInicial as loadCardsStorage, saveCardsTelaInicial as saveCardsStorage } from '../utils/storage';
+import { loadFinanciamentos as loadFinanciamentosStorage, saveFinanciamentos as saveFinanciamentosStorage } from '../utils/storage';
 
 const AppContext = createContext(null);
 
@@ -34,6 +35,8 @@ export function AppProvider({ children }) {
   const [cardsDaTelaInicial, setCardsDaTelaInicialState] = useState(CARDS_PADRAO);
   const [cardsOrdem, setCardsOrdemState] = useState(CARDS_ORDER_DEFAULT);
   const [cardsLoaded, setCardsLoaded] = useState(false);
+  const [financiamentos, setFinanciamentosState] = useState([]);
+  const [financiamentosLoaded, setFinanciamentosLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +67,22 @@ export function AppProvider({ children }) {
     if (!cardsLoaded) return;
     saveCardsStorage({ enabled: cardsDaTelaInicial, order: cardsOrdem });
   }, [cardsDaTelaInicial, cardsOrdem, cardsLoaded]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadFinanciamentosStorage().then((saved) => {
+      if (!cancelled && saved && Array.isArray(saved)) {
+        setFinanciamentosState(saved);
+      }
+      if (!cancelled) setFinanciamentosLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!financiamentosLoaded) return;
+    saveFinanciamentosStorage(financiamentos);
+  }, [financiamentos, financiamentosLoaded]);
 
   const addConta = useCallback((conta) => {
     setContas((prev) => [...prev, {
@@ -236,6 +255,53 @@ export function AppProvider({ children }) {
       .reduce((s, x) => s + (x.valor || 0), 0);
   }, [transacoes]);
 
+  const addFinanciamento = useCallback((data) => {
+    const totalParcelas = Math.max(1, parseInt(data.totalParcelas, 10) || 1);
+    const valorPadrao = parseFloat(data.valorPadrao) || 0;
+    const diaVencimento = Math.min(31, Math.max(1, parseInt(data.diaVencimento, 10) || 1));
+    const parcelas = Array.from({ length: totalParcelas }, (_, i) => ({
+      numero: i + 1,
+      valorPadrao,
+      valorPago: null,
+      dataPagamento: null,
+      pago: false,
+    }));
+    const novo = {
+      id: Date.now().toString(),
+      descricao: (data.descricao || '').trim() || 'Financiamento',
+      contaId: data.contaId || null,
+      totalParcelas,
+      valorPadrao,
+      diaVencimento,
+      parcelas,
+    };
+    setFinanciamentosState((prev) => [...prev, novo]);
+  }, []);
+
+  const updateFinanciamento = useCallback((id, payload) => {
+    setFinanciamentosState((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, ...payload } : f))
+    );
+  }, []);
+
+  const updateParcelaFinanciamento = useCallback((financiamentoId, numeroParcela, payload) => {
+    setFinanciamentosState((prev) =>
+      prev.map((f) => {
+        if (f.id !== financiamentoId) return f;
+        return {
+          ...f,
+          parcelas: (f.parcelas || []).map((p) =>
+            p.numero === numeroParcela ? { ...p, ...payload } : p
+          ),
+        };
+      })
+    );
+  }, []);
+
+  const removeFinanciamento = useCallback((id) => {
+    setFinanciamentosState((prev) => prev.filter((f) => f.id !== id));
+  }, []);
+
   const saldoContas = contas
     .filter((c) => c.incluirNaSomaTelaInicial !== false)
     .reduce((s, c) => s + (c.saldo || 0), 0);
@@ -275,6 +341,11 @@ export function AppProvider({ children }) {
     removeOrcamentoMensal,
     getGastoPorCategoriaNoMes,
     getReceitasNoMes,
+    financiamentos,
+    addFinanciamento,
+    updateFinanciamento,
+    updateParcelaFinanciamento,
+    removeFinanciamento,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -111,12 +111,26 @@ export default function ContaDetalhesScreen({ navigation, route }) {
         <View style={styles.infoRow}>
           <Ionicons name="trending-down-outline" size={20} color={colors.spending} />
           <Text style={styles.infoLabel}>Quantidade de despesas</Text>
-          <Text style={[styles.infoValue, { color: colors.spending }]}>{despesas.length} Despesa(s)</Text>
+          <TouchableOpacity
+            style={styles.infoRowTouch}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Transações', params: { contaId: conta.id, filterTipo: 'saida' } })}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.infoValue, { color: colors.spending }]}>{despesas.length} Despesa(s)</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.spending} />
+          </TouchableOpacity>
         </View>
         <View style={styles.infoRow}>
           <Ionicons name="trending-up-outline" size={20} color={colors.positive} />
           <Text style={styles.infoLabel}>Quantidade de receitas</Text>
-          <Text style={[styles.infoValue, { color: colors.positive }]}>{receitas.length} Receita(s)</Text>
+          <TouchableOpacity
+            style={styles.infoRowTouch}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Transações', params: { contaId: conta.id, filterTipo: 'entrada' } })}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.infoValue, { color: colors.positive }]}>{receitas.length} Receita(s)</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.positive} />
+          </TouchableOpacity>
         </View>
         <View style={styles.infoRow}>
           <Ionicons name="swap-horizontal-outline" size={20} color={colors.textMuted} />
@@ -243,6 +257,11 @@ const styles = StyleSheet.create({
   },
   infoLabel: { flex: 1, fontSize: 14, color: colors.textMuted },
   infoValue: { fontSize: 14, color: colors.textPrimary, fontWeight: '500' },
+  infoRowTouch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',

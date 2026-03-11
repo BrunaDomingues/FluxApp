@@ -18,6 +18,7 @@ const ABA_SOBRE = 'SOBRE';
 const opcoesGerenciar = [
   { id: 'contas', label: 'Contas', icon: 'business-outline', screen: 'Contas' },
   { id: 'cartao', label: 'Cartão de crédito', icon: 'card-outline', screen: 'Cartoes' },
+  { id: 'financiamentos', label: 'Financiamentos', icon: 'document-text-outline', screen: 'Financiamentos' },
   { id: 'categorias', label: 'Categorias', icon: 'pricetag-outline', screen: 'Categories' },
   { id: 'tags', label: 'Tags', icon: 'pricetags-outline', screen: null },
   { id: 'objetivos', label: 'Objetivos', icon: 'flag-outline', screen: null },
