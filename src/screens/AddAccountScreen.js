@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,52 @@ import {
   Modal,
   Pressable,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/currency';
+
+const SPEECH_HTML = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0;background:transparent;">
+<script>
+(function() {
+  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ error: 'Não suportado' }));
+    return;
+  }
+  window.startRecognition = function() {
+    var rec = new SpeechRecognition();
+    rec.lang = 'pt-BR';
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.onresult = function(e) {
+      var t = '';
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) t += e.results[i][0].transcript;
+      }
+      if (t && window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ transcript: t }));
+    };
+    rec.onend = function() {
+      if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ done: true }));
+    };
+    rec.onerror = function(e) {
+      if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ error: e.error || 'Erro' }));
+    };
+    rec.start();
+  };
+})();
+</script>
+</body>
+</html>
+`;
 
 const BANCOS = [
   { id: 'nubank', nome: 'Nubank' },
@@ -81,6 +121,39 @@ export default function AddAccountScreen({ navigation, route }) {
   const [incluirNaSoma, setIncluirNaSoma] = useState(true);
   const [modalBanco, setModalBanco] = useState(false);
   const [modalTipo, setModalTipo] = useState(false);
+  const [modalVoz, setModalVoz] = useState(false);
+  const [vozCarregando, setVozCarregando] = useState(false);
+  const webViewRef = useRef(null);
+
+  const bottomSafe = insets.bottom || 12;
+
+  const handleMicPress = () => {
+    setModalVoz(true);
+    setVozCarregando(true);
+  };
+
+  const handleWebViewLoad = () => {
+    setVozCarregando(false);
+    setTimeout(() => {
+      webViewRef.current?.injectJavaScript('window.startRecognition && window.startRecognition();');
+    }, 300);
+  };
+
+  const handleVozMessage = (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.transcript) {
+        setDescricao((prev) => (prev ? `${prev} ${data.transcript}` : data.transcript));
+      }
+      if (data.done || data.transcript) setModalVoz(false);
+      if (data.error) {
+        if (data.error !== 'aborted' && data.error !== 'no-speech') {
+          Alert.alert('Reconhecimento de voz', data.error === 'not-allowed' ? 'Permita o uso do microfone nas configurações do app.' : 'Não foi possível transcrever.');
+        }
+        setModalVoz(false);
+      }
+    } catch (_) {}
+  };
 
   React.useEffect(() => {
     if (editar) {
@@ -148,10 +221,12 @@ export default function AddAccountScreen({ navigation, route }) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: bottomSafe }]}>
+      <KeyboardAvoidingView
+        style={styles.keyboardWrap}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
       {/* Header azul com saldo atual */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -167,7 +242,7 @@ export default function AddAccountScreen({ navigation, route }) {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomSafe }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -241,16 +316,44 @@ export default function AddAccountScreen({ navigation, route }) {
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Descrição</Text>
           <View style={styles.inputRow}>
-            <Ionicons name="mic-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+            <TouchableOpacity onPress={handleMicPress} style={styles.micButton}>
+              <Ionicons name="mic-outline" size={22} color={colors.textPrimary} />
+            </TouchableOpacity>
             <TextInput
               style={[styles.input, styles.inputWithIcon]}
-              placeholder="Descrição (opcional)"
+              placeholder="Toque no microfone para falar e transcrever (pt-BR)"
               placeholderTextColor={colors.textMuted}
               value={descricao}
               onChangeText={setDescricao}
             />
           </View>
         </View>
+
+        {/* Modal voz - WebView com Web Speech API (Google) */}
+        <Modal visible={modalVoz} transparent animationType="fade">
+          <View style={styles.modalVozBackdrop}>
+            <View style={styles.modalVozContent}>
+              {vozCarregando ? (
+                <ActivityIndicator size="large" color={colors.primary} />
+              ) : null}
+              <Text style={styles.modalVozTitle}>Ouvindo... fale agora.</Text>
+              <Text style={styles.modalVozSub}>Use o reconhecimento de voz do Google (navegador).</Text>
+              <TouchableOpacity style={styles.modalVozFechar} onPress={() => setModalVoz(false)}>
+                <Text style={styles.modalVozFecharText}>Fechar</Text>
+              </TouchableOpacity>
+            </View>
+            <WebView
+              ref={webViewRef}
+              source={{ html: SPEECH_HTML }}
+              style={styles.webViewInvisivel}
+              onLoadEnd={handleWebViewLoad}
+              onMessage={handleVozMessage}
+              javaScriptEnabled
+              originWhitelist={['*']}
+              mediaCapturePermissionGrantType="grant"
+            />
+          </View>
+        </Modal>
 
         {/* Tipo da conta */}
         <View style={styles.card}>
@@ -338,13 +441,16 @@ export default function AddAccountScreen({ navigation, route }) {
         )}
       </ScrollView>
 
-      {/* Botão circular com check (flutuante) */}
-      <View style={[styles.fabWrap, { paddingBottom: insets.bottom + spacing.md }]}>
-        <TouchableOpacity style={styles.fab} onPress={handleSalvar} activeOpacity={0.8}>
-          <Ionicons name="checkmark" size={32} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+      {/* Botão circular com check (flutuante) - mesmo padrão da tela de Categorias */}
+      <TouchableOpacity
+        style={[styles.fab, { bottom: bottomSafe }]}
+        onPress={handleSalvar}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="checkmark" size={32} color="#FFF" />
+      </TouchableOpacity>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -352,6 +458,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  keyboardWrap: {
+    flex: 1,
   },
   header: {
     backgroundColor: colors.primary,
@@ -381,7 +490,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingBottom: 100,
   },
   card: {
     backgroundColor: colors.backgroundCard,
@@ -404,6 +512,54 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  micButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.backgroundCardElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  modalVozBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  modalVozContent: {
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
+  modalVozTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginTop: spacing.sm,
+  },
+  modalVozSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+  },
+  modalVozFechar: {
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  modalVozFecharText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  webViewInvisivel: {
+    width: 1,
+    height: 1,
+    opacity: 0,
+    position: 'absolute',
   },
   inputIcon: { marginRight: spacing.sm },
   inputWithIcon: { flex: 1 },
@@ -503,19 +659,21 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   excluirText: { fontSize: 14, color: colors.spending, fontWeight: '600' },
-  fabWrap: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
   fab: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -28,
+    bottom: 24,
     width: 56,
     height: 56,
     borderRadius: 28,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
 });
