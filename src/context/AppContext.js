@@ -239,6 +239,9 @@ export function AppProvider({ children }) {
   const saldoContas = contas
     .filter((c) => c.incluirNaSomaTelaInicial !== false)
     .reduce((s, c) => s + (c.saldo || 0), 0);
+  const saldoTodasContas = contas
+    .filter((c) => !c.arquivada)
+    .reduce((s, c) => s + (c.saldo || 0), 0);
   const totalReceitas = transacoes.filter((x) => x.tipo === 'entrada').reduce((s, x) => s + (x.valor || 0), 0);
   const totalDespesas = transacoes.filter((x) => x.tipo === 'saida' || x.tipo === 'despesa_cartao').reduce((s, x) => s + Math.abs(x.valor || 0), 0);
 
@@ -262,6 +265,7 @@ export function AppProvider({ children }) {
     addTransacao,
     updateTransacao,
     saldoContas,
+    saldoTodasContas,
     totalReceitas,
     totalDespesas,
     hasCartoes: cartoes.filter((c) => c.ativo !== false).length > 0,

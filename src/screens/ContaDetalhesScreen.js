@@ -8,6 +8,7 @@ import {
   Modal,
   Pressable,
   TextInput,
+  Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
@@ -17,6 +18,7 @@ import { formatBRL, numberToRaw, parseToRaw, rawToNumber } from '../utils/curren
 
 export default function ContaDetalhesScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const bottomSafe = insets.bottom || 12;
   const contaParam = route?.params?.conta;
   const { contas, transacoes, updateConta } = useApp();
   const [reajustarVisible, setReajustarVisible] = useState(false);
@@ -61,7 +63,7 @@ export default function ContaDetalhesScreen({ navigation, route }) {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: bottomSafe }]}>
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
@@ -86,7 +88,7 @@ export default function ContaDetalhesScreen({ navigation, route }) {
           ) : null}
         </TouchableOpacity>
       </View>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomSafe }]}>
         <View style={styles.saldoSection}>
           <Text style={styles.label}>Saldo atual</Text>
           <Text style={[styles.saldoValor, (conta.saldo || 0) < 0 && styles.saldoNegativo]}>
@@ -121,10 +123,23 @@ export default function ContaDetalhesScreen({ navigation, route }) {
           <Text style={styles.infoLabel}>Quantidade de transferências</Text>
           <Text style={styles.infoValue}>{transferencias.length} Transferência(s)</Text>
         </View>
+
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleLeft}>
+            <Ionicons name="calculator-outline" size={20} color={colors.textMuted} style={styles.rowIcon} />
+            <Text style={styles.toggleLabel}>Incluir na soma da tela inicial</Text>
+          </View>
+          <Switch
+            value={conta.incluirNaSomaTelaInicial !== false}
+            onValueChange={(value) => updateConta(conta.id, { incluirNaSomaTelaInicial: value })}
+            trackColor={{ false: colors.backgroundCardElevated, true: colors.primary + '99' }}
+            thumbColor={conta.incluirNaSomaTelaInicial !== false ? colors.primary : colors.textMuted}
+          />
+        </View>
       </ScrollView>
 
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { bottom: bottomSafe + spacing.xl }]}
         onPress={() => navigation.navigate('AddAccount', { editar: conta })}
       >
         <Ionicons name="pencil" size={24} color={colors.textPrimary} />
@@ -228,10 +243,22 @@ const styles = StyleSheet.create({
   },
   infoLabel: { flex: 1, fontSize: 14, color: colors.textMuted },
   infoValue: { fontSize: 14, color: colors.textPrimary, fontWeight: '500' },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    gap: spacing.sm,
+  },
+  toggleLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  rowIcon: { marginRight: spacing.sm },
+  toggleLabel: { fontSize: 14, color: colors.textMuted },
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    bottom: spacing.xl,
+    bottom: 24,
     width: 56,
     height: 56,
     borderRadius: 28,

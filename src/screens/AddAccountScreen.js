@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   toggleLabel: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.textPrimary,
   },
   excluirBtn: {

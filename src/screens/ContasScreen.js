@@ -29,14 +29,14 @@ const OPCOES_MENU = [
 export default function ContasScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const bottomSafe = insets.bottom || 12;
-  const { contas, saldoContas, removeConta, updateConta } = useApp();
+  const { contas, saldoTodasContas, removeConta, updateConta } = useApp();
   const [mesIndex, setMesIndex] = useState(new Date().getMonth());
   const [menuConta, setMenuConta] = useState(null);
   const [reajustarConta, setReajustarConta] = useState(null);
   const [reajustarValor, setReajustarValor] = useState('');
 
   const contasVisiveis = contas.filter((c) => !c.arquivada);
-  const saldoPrevisto = saldoContas;
+  const saldoPrevisto = saldoTodasContas;
 
   const handleAbrirMenu = (conta) => {
     setMenuConta(conta);
@@ -138,8 +138,8 @@ export default function ContasScreen({ navigation }) {
               <Ionicons name="cash-outline" size={20} color={colors.textMuted} />
             </View>
             <Text style={styles.saldoLabel}>Saldo atual</Text>
-            <Text style={[styles.saldoValor, saldoContas < 0 && styles.saldoNegativo]}>
-              {formatBRL(numberToRaw(saldoContas))}
+            <Text style={[styles.saldoValor, saldoTodasContas < 0 && styles.saldoNegativo]}>
+              {formatBRL(numberToRaw(saldoTodasContas))}
             </Text>
           </View>
           <View style={styles.saldoCard}>
