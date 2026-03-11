@@ -8,7 +8,6 @@ import {
   Share,
   Alert,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
@@ -19,6 +18,7 @@ import { buildCSVFromData, parseCSVToData } from '../utils/exportImport';
 let FileSystem;
 let Sharing;
 let DocumentPicker;
+let captureRef;
 try {
   FileSystem = require('expo-file-system').default;
 } catch (_) {}
@@ -28,10 +28,8 @@ try {
 try {
   DocumentPicker = require('expo-document-picker');
 } catch (_) {}
-
-let ViewShot;
 try {
-  ViewShot = require('react-native-view-shot').default;
+  captureRef = require('react-native-view-shot').captureRef;
 } catch (_) {}
 
 export default function ExportImportScreen({ navigation }) {
@@ -87,14 +85,18 @@ export default function ExportImportScreen({ navigation }) {
   };
 
   const handleExportImage = async () => {
-    if (!ViewShot || !viewShotRef.current) {
-      setExportMsg('Exportar como imagem não disponível neste dispositivo.');
+    if (!captureRef || !viewShotRef.current) {
+      setExportMsg('Ref da view ainda não está pronto. Role até o resumo e tente de novo.');
       return;
     }
     setLoading(true);
     setExportMsg(null);
     try {
-      const uri = await viewShotRef.current.capture();
+      const uri = await captureRef(viewShotRef.current, {
+        result: 'tmpfile',
+        format: 'png',
+        quality: 1,
+      });
       if (Sharing && (await Sharing.isAvailableAsync())) {
         await Sharing.shareAsync(uri, {
           mimeType: 'image/png',
@@ -196,22 +198,22 @@ export default function ExportImportScreen({ navigation }) {
           <Text style={styles.btnText}>Exportar como CSV</Text>
           <Text style={styles.btnSub}>Compartilhar ou salvar todos os dados em planilha</Text>
         </TouchableOpacity>
-        {ViewShot ? (
+        {captureRef ? (
           <>
-            <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }} style={styles.viewShotInner} collapsable={false}>
+            <View ref={viewShotRef} style={styles.viewShotInner} collapsable={false}>
               {ResumoView}
-            </ViewShot>
+            </View>
             <TouchableOpacity style={styles.btn} onPress={handleExportImage} disabled={loading}>
               <Ionicons name="image-outline" size={24} color={colors.primary} />
               <Text style={styles.btnText}>Exportar como imagem</Text>
-              <Text style={styles.btnSub}>Captura do resumo acima</Text>
+              <Text style={styles.btnSub}>Captura do resumo acima e compartilha como PNG</Text>
             </TouchableOpacity>
           </>
         ) : (
           <TouchableOpacity style={[styles.btn, styles.btnDisabled]} onPress={handleExportImage} disabled>
             <Ionicons name="image-outline" size={24} color={colors.textMuted} />
             <Text style={[styles.btnText, { color: colors.textMuted }]}>Exportar como imagem</Text>
-            <Text style={styles.btnSub}>Instale react-native-view-shot para usar</Text>
+            <Text style={styles.btnSub}>Instale react-native-view-shot (npx expo install react-native-view-shot)</Text>
           </TouchableOpacity>
         )}
 

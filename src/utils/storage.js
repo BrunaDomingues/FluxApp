@@ -8,6 +8,8 @@ const KEY_CONTAS = '@fluxapp_contas';
 const KEY_CARTOES = '@fluxapp_cartoes';
 const KEY_TRANSACOES = '@fluxapp_transacoes';
 const KEY_ORCAMENTO_MENSAL = '@fluxapp_orcamento_mensal';
+const KEY_USUARIOS = '@fluxapp_usuarios';
+const KEY_RECEBIMENTOS_USUARIOS = '@fluxapp_recebimentos_usuarios';
 
 export async function loadCategorias() {
   try {
@@ -176,5 +178,47 @@ export async function saveOrcamentoMensal(orcamentoMensal) {
     await AsyncStorage.setItem(KEY_ORCAMENTO_MENSAL, JSON.stringify(orcamentoMensal || {}));
   } catch (e) {
     console.warn('saveOrcamentoMensal:', e);
+  }
+}
+
+export async function loadUsuarios() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY_USUARIOS);
+    if (raw) {
+      const data = JSON.parse(raw);
+      return Array.isArray(data) ? data : [];
+    }
+  } catch (e) {
+    console.warn('loadUsuarios:', e);
+  }
+  return null;
+}
+
+export async function saveUsuarios(usuarios) {
+  try {
+    await AsyncStorage.setItem(KEY_USUARIOS, JSON.stringify(usuarios || []));
+  } catch (e) {
+    console.warn('saveUsuarios:', e);
+  }
+}
+
+export async function loadRecebimentosUsuarios() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY_RECEBIMENTOS_USUARIOS);
+    if (raw) {
+      const data = JSON.parse(raw);
+      return Array.isArray(data) ? data : [];
+    }
+  } catch (e) {
+    console.warn('loadRecebimentosUsuarios:', e);
+  }
+  return [];
+}
+
+export async function saveRecebimentosUsuarios(recebimentos) {
+  try {
+    await AsyncStorage.setItem(KEY_RECEBIMENTOS_USUARIOS, JSON.stringify(recebimentos || []));
+  } catch (e) {
+    console.warn('saveRecebimentosUsuarios:', e);
   }
 }

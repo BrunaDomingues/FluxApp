@@ -13,6 +13,10 @@ import {
   saveTransacoes as saveTransacoesStorage,
   loadOrcamentoMensal as loadOrcamentoMensalStorage,
   saveOrcamentoMensal as saveOrcamentoMensalStorage,
+  loadUsuarios as loadUsuariosStorage,
+  saveUsuarios as saveUsuariosStorage,
+  loadRecebimentosUsuarios as loadRecebimentosUsuariosStorage,
+  saveRecebimentosUsuarios as saveRecebimentosUsuariosStorage,
 } from '../utils/storage';
 
 const AppContext = createContext(null);
@@ -56,6 +60,10 @@ export function AppProvider({ children }) {
   const [objetivosLoaded, setObjetivosLoaded] = useState(false);
   const [orcamentoMensal, setOrcamentoMensalState] = useState({});
   const [orcamentoLoaded, setOrcamentoLoaded] = useState(false);
+  const [usuarios, setUsuariosState] = useState([]);
+  const [usuariosLoaded, setUsuariosLoaded] = useState(false);
+  const [recebimentosDeUsuarios, setRecebimentosDeUsuarios] = useState([]);
+  const [recebimentosLoaded, setRecebimentosLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,6 +191,38 @@ export function AppProvider({ children }) {
     saveOrcamentoMensalStorage(orcamentoMensal);
   }, [orcamentoMensal, orcamentoLoaded]);
 
+  useEffect(() => {
+    let cancelled = false;
+    loadUsuariosStorage().then((saved) => {
+      if (!cancelled && saved && Array.isArray(saved)) {
+        setUsuariosState(saved);
+      }
+      if (!cancelled) setUsuariosLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!usuariosLoaded) return;
+    saveUsuariosStorage(usuarios);
+  }, [usuarios, usuariosLoaded]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadRecebimentosUsuariosStorage().then((saved) => {
+      if (!cancelled && saved && Array.isArray(saved)) {
+        setRecebimentosDeUsuarios(saved);
+      }
+      if (!cancelled) setRecebimentosLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!recebimentosLoaded) return;
+    saveRecebimentosUsuariosStorage(recebimentosDeUsuarios);
+  }, [recebimentosDeUsuarios, recebimentosLoaded]);
+
   const addConta = useCallback((conta) => {
     setContas((prev) => [...prev, {
       id: Date.now().toString(),
@@ -268,9 +308,9 @@ export function AppProvider({ children }) {
     const nova = {
       ...t,
       id: Date.now().toString(),
-      data: now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      mes: now.getMonth(),
-      ano: now.getFullYear(),
+      data: t.data != null && t.data !== '' ? t.data : now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      mes: t.mes != null && typeof t.mes === 'number' ? t.mes : now.getMonth(),
+      ano: t.ano != null && typeof t.ano === 'number' ? t.ano : now.getFullYear(),
     };
     setTransacoes((prev) => [...prev, nova]);
     if (t.tipo === 'despesa_cartao') return;
@@ -536,6 +576,125 @@ export function AppProvider({ children }) {
     );
   }, []);
 
+  const getPrincipalUserId = useCallback(() => {
+    const p = usuarios.find((u) => u.principal === true);
+    return p ? p.id : null;
+  }, [usuarios]);
+
+  const addUser = useCallback((nome) => {
+    const principalId = getPrincipalUserId();
+    const novo = {
+      id: Date.now().toString(),
+      nome: (nome || '').trim() || 'Usuário',
+      principal: !principalId,
+    };
+    setUsuariosState((prev) => [...prev, novo]);
+    return novo.id;
+  }, [getPrincipalUserId]);
+
+  const updateUser = useCallback((id, payload) => {
+    setUsuariosState((prev) => prev.map((u) => (u.id === id ? { ...u, ...payload } : u)));
+  }, []);
+
+  const removeUser = useCallback((id) => {
+    setUsuariosState((prev) => prev.filter((u) => u.id !== id));
+  }, []);
+
+  const setPrincipalUser = useCallback((id) => {
+    setUsuariosState((prev) =>
+      prev.map((u) => ({ ...u, principal: u.id === id }))
+    );
+  }, []);
+
+  /** Parte do valor da despesa que cabe ao usuário principal (para divisão). Sem divisão retorna o valor total. */
+  const getValorPartePrincipal = useCallback((transacao) => {
+    const d = transacao?.divisao;
+    if (!d || !d.partes || d.partes.length === 0) return Math.abs(transacao?.valor ?? 0);
+    const principalId = getPrincipalUserId();
+    if (!principalId) return Math.abs(transacao?.valor ?? 0);
+    const total = Math.abs(transacao?.valor ?? 0);
+    const parte = d.partes.find((p) => p.userId === principalId);
+    if (!parte) return 0;
+    let pct = parte.porcentagem;
+    if (pct == null && d.tipo === 'igual') pct = 100 / d.partes.length;
+    return Math.round(total * ((pct || 0) / 100) * 100) / 100;
+  }, [usuarios, getPrincipalUserId]);
+
+  /** Valor total que o usuário userId deve ao principal (soma das partes dele nas despesas divididas). */
+  const getValorAReceberDeUsuario = useCallback((userId) => {
+    const despesas = transacoes.filter(
+      (t) => (t.tipo === 'saida' || t.tipo === 'despesa_cartao') && t.divisao?.partes?.some((p) => p.userId === userId)
+    );
+    const total = despesas.reduce((s, t) => {
+      const parte = t.divisao.partes.find((p) => p.userId === userId);
+      let pct = parte?.porcentagem;
+      if (pct == null && t.divisao.tipo === 'igual') pct = 100 / t.divisao.partes.length;
+      return s + Math.abs(t.valor || 0) * ((pct || 0) / 100);
+    }, 0);
+    return Math.round(total * 100) / 100;
+  }, [transacoes]);
+
+  /** Total já recebido do usuário userId (registros de recebimento). */
+  const getTotalRecebidoDeUsuario = useCallback((userId) => {
+    return recebimentosDeUsuarios
+      .filter((r) => r.userId === userId)
+      .reduce((s, r) => s + (r.valor || 0), 0);
+  }, [recebimentosDeUsuarios]);
+
+  /** Valor que ainda falta receber do usuário userId (deve - já recebido). */
+  const getValorAReceberRestanteDeUsuario = useCallback((userId) => {
+    const devido = getValorAReceberDeUsuario(userId);
+    const recebido = getTotalRecebidoDeUsuario(userId);
+    return Math.round(Math.max(0, devido - recebido) * 100) / 100;
+  }, [getValorAReceberDeUsuario, getTotalRecebidoDeUsuario]);
+
+  /** Soma do valor a receber restante de todos os usuários (exceto o principal). */
+  const getTotalAReceberRestante = useCallback(() => {
+    const principalId = getPrincipalUserId();
+    const total = usuarios
+      .filter((u) => u.id !== principalId)
+      .reduce((s, u) => s + getValorAReceberRestanteDeUsuario(u.id), 0);
+    return Math.round(total * 100) / 100;
+  }, [usuarios, getPrincipalUserId, getValorAReceberRestanteDeUsuario]);
+
+  /** Registra recebimento de valor do usuário userId: adiciona receita e reduz "a receber". */
+  const addRecebimento = useCallback((userId, valor, contaId) => {
+    const id = Date.now().toString();
+    const user = usuarios.find((u) => u.id === userId);
+    const nome = user?.nome || 'Usuário';
+    const now = new Date();
+    const data = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const mes = now.getMonth();
+    const ano = now.getFullYear();
+    const valorNum = Math.round(Math.abs(Number(valor) || 0) * 100) / 100;
+    if (valorNum <= 0) return;
+    const conta = contaId || contas.filter((c) => !c.arquivada)[0]?.id;
+    addTransacao({
+      tipo: 'entrada',
+      valor: valorNum,
+      descricao: `Recebimento de ${nome}`,
+      contaId: conta || null,
+      data,
+      mes,
+      ano,
+      recebimentoDeUserId: userId,
+    });
+    setRecebimentosDeUsuarios((prev) => [...prev, { id, userId, valor: valorNum, data, mes, ano }]);
+  }, [usuarios, contas, addTransacao]);
+
+  /** Lista de despesas em que o usuário userId tem parte (para cobrança). Cada item: { transacao, valorParte, porcentagem } */
+  const getDespesasComParteDoUsuario = useCallback((userId) => {
+    return transacoes
+      .filter((t) => (t.tipo === 'saida' || t.tipo === 'despesa_cartao') && t.divisao?.partes?.some((p) => p.userId === userId))
+      .map((t) => {
+        const parte = t.divisao.partes.find((p) => p.userId === userId);
+        let pct = parte?.porcentagem;
+        if (pct == null && t.divisao.tipo === 'igual') pct = 100 / t.divisao.partes.length;
+        const valorParte = Math.round(Math.abs(t.valor || 0) * ((pct || 0) / 100) * 100) / 100;
+        return { transacao: t, valorParte, porcentagem: Math.round((pct || 0) * 100) / 100 };
+      });
+  }, [transacoes]);
+
   /** Substitui todos os dados pelos importados (ex.: de CSV). parsed = { contas, cartoes, transacoes, objetivos, financiamentos, orcamentoMensal } */
   const importReplaceAll = useCallback((parsed) => {
     if (parsed.contas != null && Array.isArray(parsed.contas) && parsed.contas.length > 0) {
@@ -631,6 +790,19 @@ export function AppProvider({ children }) {
     addDepositoObjetivo,
     removeDepositoObjetivo,
     importReplaceAll,
+    usuarios,
+    addUser,
+    updateUser,
+    removeUser,
+    setPrincipalUser,
+    getPrincipalUserId,
+    getValorPartePrincipal,
+    getValorAReceberDeUsuario,
+    getTotalRecebidoDeUsuario,
+    getValorAReceberRestanteDeUsuario,
+    getTotalAReceberRestante,
+    addRecebimento,
+    getDespesasComParteDoUsuario,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

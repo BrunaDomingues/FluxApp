@@ -55,7 +55,7 @@ export function buildCSVFromData(data) {
   lines.push([
     'id', 'tipo', 'data', 'valor', 'descricao', 'categoriaId', 'contaId', 'mes', 'ano',
     'parcelaNumero', 'totalParcelas', 'parcelaGroupId', 'mesVencimento', 'anoVencimento', 'pago',
-    'transferenciaId', 'contaDestinoId',
+    'transferenciaId', 'contaDestinoId', 'local',
   ].join(SEP));
   (data.transacoes || []).forEach((t) => {
     lines.push([
@@ -76,6 +76,7 @@ export function buildCSVFromData(data) {
       escapeCSV(t.pago),
       escapeCSV(t.transferenciaId),
       escapeCSV(t.contaDestinoId),
+      escapeCSV(t.local),
     ].join(SEP));
   });
   lines.push('');
@@ -231,6 +232,7 @@ export function parseCSVToData(text) {
         pago: row[14] === 'true' || row[14] === true,
         transferenciaId: row[15] || undefined,
         contaDestinoId: row[16] || undefined,
+        local: row[17] || undefined,
       });
     } else if (section === 'Objetivos' && row[0] !== 'id') {
       let depositos = [];

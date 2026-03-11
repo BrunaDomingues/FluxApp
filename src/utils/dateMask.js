@@ -29,3 +29,20 @@ export function parseLocalDateFromYYYYMMDD(str) {
   if (isNaN(d.getTime())) return null;
   return d;
 }
+
+/**
+ * Interpreta string dd/mm/yyyy ou dd/mm (usa ano atual) para dia, mês, ano.
+ * @param {string} str - "dd/mm/yyyy" ou "dd/mm"
+ * @returns {{ day: number, month: number, year: number } | null} month 0-11 (Date)
+ */
+export function parseDateDDMM(str) {
+  if (!str || typeof str !== 'string') return null;
+  const parts = str.trim().split('/').map((p) => parseInt(p.replace(/\D/g, ''), 10));
+  const day = parts[0];
+  const month = parts[1] != null ? parts[1] - 1 : null;
+  const year = parts[2] != null ? parts[2] : new Date().getFullYear();
+  if (isNaN(day) || day < 1 || day > 31) return null;
+  if (month == null || isNaN(month) || month < 0 || month > 11) return null;
+  if (isNaN(year) || year < 1900 || year > 2100) return null;
+  return { day, month, year };
+}

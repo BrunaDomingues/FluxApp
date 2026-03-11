@@ -22,6 +22,7 @@ const opcoesGerenciar = [
   { id: 'categorias', label: 'Categorias', icon: 'pricetag-outline', screen: 'Categories' },
   { id: 'tags', label: 'Tags', icon: 'pricetags-outline', screen: null },
   { id: 'objetivos', label: 'Objetivos', icon: 'flag-outline', screen: 'Objetivos' },
+  { id: 'usuarios', label: 'Usuários (dividir despesas)', icon: 'people-outline', screen: 'Usuarios' },
   { id: 'importar', label: 'Importar dados', icon: 'cloud-upload-outline', screen: 'ExportImport' },
   { id: 'exportar', label: 'Exportar relatório', icon: 'cloud-download-outline', screen: 'ExportImport' },
   { id: 'cards', label: 'Cards da tela inicial', icon: 'grid-outline', screen: 'CardsDaTelaInicial' },

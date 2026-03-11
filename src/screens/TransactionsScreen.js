@@ -32,13 +32,25 @@ const FILTROS = [
 
 export default function TransactionsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { transacoes, contas } = useApp();
+  const {
+    transacoes,
+    contas,
+    usuarios,
+    getPrincipalUserId,
+    getValorPartePrincipal,
+    getDespesasComParteDoUsuario,
+  } = useApp();
   const contaIdFromParams = route.params?.contaId ?? null;
   const filterTipoFromParams = route.params?.filterTipo ?? null;
 
   const [filterTipo, setFilterTipo] = useState(filterTipoFromParams || 'todas');
   const [contaId, setContaId] = useState(contaIdFromParams);
+  const [userId, setUserId] = useState(null);
   const [modalConta, setModalConta] = useState(false);
+  const [modalUsuario, setModalUsuario] = useState(false);
+
+  const principalId = getPrincipalUserId();
+  const outrosUsuarios = (usuarios || []).filter((u) => !u.principal);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -57,12 +69,31 @@ export default function TransactionsScreen({ navigation, route }) {
     } else if (filterTipo === 'saida') {
       list = list.filter((t) => t.tipo === 'saida' || t.tipo === 'despesa_cartao');
     }
+    if (userId) {
+      list = list.filter((t) => {
+        if (t.tipo !== 'saida' && t.tipo !== 'despesa_cartao') return false;
+        return t.divisao?.partes?.some((p) => p.userId === userId);
+      });
+    }
     return list;
-  }, [transacoes, contaId, filterTipo]);
+  }, [transacoes, contaId, filterTipo, userId]);
 
   const getIcon = (categoriaNome) => iconMap[categoriaNome] || iconMap.default;
   const contaNome = contaId ? contas.find((c) => c.id === contaId)?.nome : null;
+  const usuarioNome = userId ? (usuarios || []).find((u) => u.id === userId)?.nome : null;
   const contasVisiveis = contas.filter((c) => !c.arquivada);
+
+  const valorExibir = (t) => {
+    if (!userId) {
+      if ((t.tipo === 'saida' || t.tipo === 'despesa_cartao') && t.divisao && principalId) {
+        return getValorPartePrincipal(t);
+      }
+      return Math.abs(t.valor || 0);
+    }
+    const despesas = getDespesasComParteDoUsuario(userId);
+    const item = despesas.find((d) => d.transacao.id === t.id);
+    return item ? item.valorParte : Math.abs(t.valor || 0);
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -79,6 +110,19 @@ export default function TransactionsScreen({ navigation, route }) {
           </Text>
           <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
         </TouchableOpacity>
+        {outrosUsuarios.length > 0 && (
+          <TouchableOpacity
+            style={styles.contaFilterBtn}
+            onPress={() => setModalUsuario(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="person-outline" size={18} color={colors.textMuted} />
+            <Text style={styles.contaFilterBtnText}>
+              {usuarioNome || 'Todos'}
+            </Text>
+            <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
       </View>
       <View style={styles.filtrosRow}>
         {FILTROS.map((f) => (
@@ -128,6 +172,7 @@ export default function TransactionsScreen({ navigation, route }) {
                     {t.descricao || t.categoriaNome || (t.tipo === 'entrada' ? 'Entrada' : 'Despesa')}
                   </Text>
                   <Text style={styles.data}>{t.data || '—'}</Text>
+                  {t.local ? <Text style={styles.local}>{t.local}</Text> : null}
                 </View>
                 <Text
                   style={[
@@ -135,7 +180,9 @@ export default function TransactionsScreen({ navigation, route }) {
                     (t.tipo === 'entrada' || (t.valor && t.valor > 0)) ? styles.valorEntrada : styles.valorSaida,
                   ]}
                 >
-                  {t.valor >= 0 ? '+' : ''}R$ {Math.abs(t.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {t.tipo === 'entrada' || (t.valor && t.valor > 0)
+                    ? `+R$ ${valorExibir(t).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                    : `-R$ ${valorExibir(t).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                 </Text>
               </TouchableOpacity>
             ))
@@ -162,6 +209,30 @@ export default function TransactionsScreen({ navigation, route }) {
               >
                 <Text style={styles.modalItemText}>{c.nome}</Text>
                 {contaId === c.id ? <Ionicons name="checkmark" size={20} color={colors.primary} /> : null}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+      <Modal visible={modalUsuario} transparent animationType="fade">
+        <Pressable style={styles.modalBackdrop} onPress={() => setModalUsuario(false)}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Filtrar por usuário</Text>
+            <TouchableOpacity
+              style={[styles.modalItem, !userId && styles.modalItemActive]}
+              onPress={() => { setUserId(null); setModalUsuario(false); }}
+            >
+              <Text style={styles.modalItemText}>Todos</Text>
+              {!userId ? <Ionicons name="checkmark" size={20} color={colors.primary} /> : null}
+            </TouchableOpacity>
+            {outrosUsuarios.map((u) => (
+              <TouchableOpacity
+                key={u.id}
+                style={[styles.modalItem, userId === u.id && styles.modalItemActive]}
+                onPress={() => { setUserId(u.id); setModalUsuario(false); }}
+              >
+                <Text style={styles.modalItemText}>{u.nome}</Text>
+                {userId === u.id ? <Ionicons name="checkmark" size={20} color={colors.primary} /> : null}
               </TouchableOpacity>
             ))}
           </View>
@@ -280,6 +351,11 @@ const styles = StyleSheet.create({
   },
   data: {
     fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  local: {
+    fontSize: 11,
     color: colors.textMuted,
     marginTop: 2,
   },

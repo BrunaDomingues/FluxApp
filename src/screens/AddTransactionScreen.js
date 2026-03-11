@@ -15,6 +15,7 @@ import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/currency';
+import { maskDateInput, parseDateDDMM } from '../utils/dateMask';
 import { ICONE_PADRAO } from '../constants/categorias';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -29,7 +30,7 @@ const ANOS = buildAnos();
 
 export default function AddTransactionScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { categorias, contas, cartoes, addTransacao, updateTransacao, removeTransacao, transacoes } = useApp();
+  const { categorias, contas, cartoes, addTransacao, updateTransacao, removeTransacao, transacoes, usuarios, getPrincipalUserId } = useApp();
   const editar = route?.params?.editar;
   const isEditMode = !!editar;
 
@@ -51,7 +52,15 @@ export default function AddTransactionScreen({ navigation, route }) {
   const [modalCategoriaVisible, setModalCategoriaVisible] = useState(false);
   const [modalMesVisible, setModalMesVisible] = useState(false);
   const [modalAnoVisible, setModalAnoVisible] = useState(false);
+  const [divisaoAtiva, setDivisaoAtiva] = useState(false);
+  const [usuariosDivisao, setUsuariosDivisao] = useState([]);
+  const [tipoDivisao, setTipoDivisao] = useState('igual');
+  const [porcentagens, setPorcentagens] = useState({});
+  const [dataTransacao, setDataTransacao] = useState('');
+  const [local, setLocal] = useState('');
 
+  const principalId = getPrincipalUserId();
+  const outrosUsuarios = (usuarios || []).filter((u) => !u.principal);
   const contasVisiveis = contas.filter((c) => !c.arquivada);
   const categoriasFiltradas = isTransferencia ? [] : categorias.filter((c) => c.tipo === tipo);
   const valorNum = rawToNumber(valor);
@@ -94,7 +103,52 @@ export default function AddTransactionScreen({ navigation, route }) {
     } else {
       setContaDestinoId(contasVisiveis[1]?.id || contas[1]?.id || null);
     }
+    if (editar.divisao && editar.divisao.partes) {
+      setDivisaoAtiva(true);
+      setTipoDivisao(editar.divisao.tipo || 'igual');
+      const outros = (editar.divisao.partes || []).filter((p) => p.userId !== principalId).map((p) => p.userId);
+      setUsuariosDivisao(outros);
+      const pcts = {};
+      (editar.divisao.partes || []).forEach((p) => { pcts[p.userId] = String(p.porcentagem ?? ''); });
+      setPorcentagens(pcts);
+    }
+    if (editar.data) {
+      const d = editar.data;
+      setDataTransacao(d.length >= 10 ? d : d + '/' + (editar.ano ?? new Date().getFullYear()));
+    }
+    if (editar.local != null) setLocal(editar.local || '');
   }, [editar?.id]);
+
+  const getDataMesAno = () => {
+    const now = new Date();
+    if (!dataTransacao || !dataTransacao.trim()) {
+      return {
+        data: now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        mes: now.getMonth(),
+        ano: now.getFullYear(),
+      };
+    }
+    const parsed = parseDateDDMM(dataTransacao.trim());
+    if (!parsed) return { data: dataTransacao.trim(), mes: now.getMonth(), ano: now.getFullYear() };
+    const dataStr = `${String(parsed.day).padStart(2, '0')}/${String(parsed.month + 1).padStart(2, '0')}/${parsed.year}`;
+    return { data: dataStr, mes: parsed.month, ano: parsed.year };
+  };
+
+  const buildDivisaoPayload = () => {
+    if (!divisaoAtiva || !principalId) return undefined;
+    const partesIds = [principalId, ...usuariosDivisao];
+    if (partesIds.length < 2) return undefined;
+    if (tipoDivisao === 'igual') {
+      const pct = 100 / partesIds.length;
+      return { tipo: 'igual', partes: partesIds.map((userId) => ({ userId, porcentagem: pct })) };
+    }
+    const sum = partesIds.reduce((s, id) => s + (parseFloat(porcentagens[id]) || 0), 0);
+    if (Math.abs(sum - 100) > 0.01) return undefined;
+    return {
+      tipo: 'porcentagem',
+      partes: partesIds.map((userId) => ({ userId, porcentagem: parseFloat(porcentagens[userId]) || 0 })),
+    };
+  };
 
   const handleSalvar = () => {
     if (valorNum <= 0) {
@@ -118,6 +172,7 @@ export default function AddTransactionScreen({ navigation, route }) {
           return;
         }
         const cat = categorias.find((c) => c.id === categoriaId);
+        const { data, mes, ano } = getDataMesAno();
         updateTransacao(editar.id, {
           valor: tipo === 'entrada' ? valorNum : -valorNum,
           categoriaId: categoriaId || undefined,
@@ -125,6 +180,11 @@ export default function AddTransactionScreen({ navigation, route }) {
           contaId: isCartao ? undefined : contaId,
           cartaoId: isCartao ? cartaoId : undefined,
           descricao: descricao.trim() || undefined,
+          divisao: buildDivisaoPayload(),
+          data,
+          mes,
+          ano,
+          local: local.trim() || undefined,
         });
       }
       navigation.goBack();
@@ -151,10 +211,19 @@ export default function AddTransactionScreen({ navigation, route }) {
       Alert.alert('Atenção', 'Selecione uma categoria.');
       return;
     }
+    if (divisaoAtiva && tipoDivisao === 'porcentagem') {
+      const partesIds = [principalId, ...usuariosDivisao].filter(Boolean);
+      const sum = partesIds.reduce((s, id) => s + (parseFloat(porcentagens[id]) || 0), 0);
+      if (partesIds.length >= 2 && Math.abs(sum - 100) > 0.01) {
+        Alert.alert('Atenção', 'A soma das porcentagens deve ser 100%.');
+        return;
+      }
+    }
     const cat = categorias.find((c) => c.id === categoriaId);
     const numParcelas = Math.max(1, parseInt(totalParcelas, 10) || 1);
     const isParcelado = isCartao && numParcelas > 1;
     const valorEnvio = isParcelado ? Math.abs(valorNum) / numParcelas : (tipo === 'entrada' ? valorNum : -Math.abs(valorNum));
+    const { data, mes, ano } = getDataMesAno();
     addTransacao({
       tipo: isCartao ? 'despesa_cartao' : tipo === 'entrada' ? 'entrada' : 'saida',
       valor: tipo === 'entrada' ? valorNum : (isParcelado ? -valorEnvio : -Math.abs(valorNum)),
@@ -168,6 +237,11 @@ export default function AddTransactionScreen({ navigation, route }) {
         mesPrimeiraParcela,
         anoPrimeiraParcela,
       }),
+      divisao: buildDivisaoPayload(),
+      data,
+      mes,
+      ano,
+      local: local.trim() || undefined,
     });
     navigation.goBack();
   };
@@ -190,7 +264,7 @@ export default function AddTransactionScreen({ navigation, route }) {
     : (isTransferencia ? 'Transferência' : tipo === 'entrada' ? 'Nova entrada' : isCartao ? 'Despesa no cartão' : 'Nova despesa');
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
@@ -215,6 +289,27 @@ export default function AddTransactionScreen({ navigation, route }) {
           value={descricao}
           onChangeText={setDescricao}
         />
+        {!isTransferencia && (
+          <>
+            <Text style={styles.label}>Data (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="dd/mm/aaaa — vazio = hoje"
+              placeholderTextColor={colors.textMuted}
+              value={dataTransacao}
+              onChangeText={(text) => setDataTransacao(maskDateInput(text))}
+              keyboardType="numeric"
+            />
+            <Text style={styles.label}>Local (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ex: Restaurante X, Posto Shell"
+              placeholderTextColor={colors.textMuted}
+              value={local}
+              onChangeText={setLocal}
+            />
+          </>
+        )}
         {isTransferencia && contasVisiveis.length >= 2 && (
           <>
             <Text style={styles.label}>Conta de origem</Text>
@@ -424,6 +519,102 @@ export default function AddTransactionScreen({ navigation, route }) {
         </Modal>
         </>
         )}
+        {!isTransferencia && outrosUsuarios.length > 0 && (tipo === 'saida' || isCartao) && (
+          <>
+            <View style={styles.divisaoRow}>
+              <Text style={styles.label}>Dividir despesa</Text>
+              <TouchableOpacity
+                style={[styles.toggleDivisao, divisaoAtiva && styles.toggleDivisaoActive]}
+                onPress={() => setDivisaoAtiva(!divisaoAtiva)}
+              >
+                <Text style={[styles.toggleDivisaoText, divisaoAtiva && styles.toggleDivisaoTextActive]}>
+                  {divisaoAtiva ? 'Sim' : 'Não'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {divisaoAtiva && (
+              <>
+                <Text style={styles.label}>Com quem dividir (além de você)</Text>
+                <View style={styles.optionsRow}>
+                  {outrosUsuarios.map((u) => {
+                    const selected = usuariosDivisao.includes(u.id);
+                    return (
+                      <TouchableOpacity
+                        key={u.id}
+                        style={[styles.optionChip, selected && styles.optionChipActive]}
+                        onPress={() => {
+                          if (selected) {
+                            setUsuariosDivisao((prev) => prev.filter((id) => id !== u.id));
+                            setPorcentagens((p) => ({ ...p, [u.id]: '' }));
+                          } else {
+                            setUsuariosDivisao((prev) => [...prev, u.id]);
+                            if (tipoDivisao === 'igual') setPorcentagens((p) => ({ ...p, [u.id]: '' }));
+                          }
+                        }}
+                      >
+                        <Text style={[styles.optionChipText, selected && styles.optionChipTextActive]}>{u.nome}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {usuariosDivisao.length > 0 && (
+                  <>
+                    <Text style={styles.label}>Tipo de divisão</Text>
+                    <View style={styles.optionsRow}>
+                      <TouchableOpacity
+                        style={[styles.optionChip, tipoDivisao === 'igual' && styles.optionChipActive]}
+                        onPress={() => { setTipoDivisao('igual'); setPorcentagens({}); }}
+                      >
+                        <Text style={[styles.optionChipText, tipoDivisao === 'igual' && styles.optionChipTextActive]}>Igual</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.optionChip, tipoDivisao === 'porcentagem' && styles.optionChipActive]}
+                        onPress={() => setTipoDivisao('porcentagem')}
+                      >
+                        <Text style={[styles.optionChipText, tipoDivisao === 'porcentagem' && styles.optionChipTextActive]}>Por %</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {tipoDivisao === 'porcentagem' && (
+                      <>
+                        <Text style={styles.label}>Porcentagem de cada um (total = 100%)</Text>
+                        {principalId && (
+                          <View style={styles.porcRow}>
+                            <Text style={styles.porcLabel}>Você (principal)</Text>
+                            <TextInput
+                              style={styles.porcInput}
+                              placeholder="%"
+                              placeholderTextColor={colors.textMuted}
+                              value={porcentagens[principalId] ?? ''}
+                              onChangeText={(v) => setPorcentagens((p) => ({ ...p, [principalId]: v.replace(/\D/g, '') }))}
+                              keyboardType="number-pad"
+                            />
+                          </View>
+                        )}
+                        {usuariosDivisao.map((uid) => {
+                          const u = outrosUsuarios.find((x) => x.id === uid);
+                          if (!u) return null;
+                          return (
+                            <View key={u.id} style={styles.porcRow}>
+                              <Text style={styles.porcLabel}>{u.nome}</Text>
+                              <TextInput
+                                style={styles.porcInput}
+                                placeholder="%"
+                                placeholderTextColor={colors.textMuted}
+                                value={porcentagens[u.id] ?? ''}
+                                onChangeText={(v) => setPorcentagens((p) => ({ ...p, [u.id]: v.replace(/\D/g, '') }))}
+                                keyboardType="number-pad"
+                              />
+                            </View>
+                          );
+                        })}
+                      </>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </>
+        )}
         <TouchableOpacity style={styles.button} onPress={handleSalvar}>
           <Text style={styles.buttonText}>Salvar</Text>
         </TouchableOpacity>
@@ -525,6 +716,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCancelText: { fontSize: 16, color: colors.textMuted, fontWeight: '600' },
+  divisaoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
+  toggleDivisao: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.full,
+  },
+  toggleDivisaoActive: { backgroundColor: colors.primary },
+  toggleDivisaoText: { fontSize: 14, color: colors.textMuted },
+  toggleDivisaoTextActive: { color: colors.textPrimary, fontWeight: '600' },
+  porcRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  porcLabel: { flex: 1, fontSize: 14, color: colors.textSecondary },
+  porcInput: {
+    width: 70,
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    fontSize: 16,
+    color: colors.textPrimary,
+    textAlign: 'right',
+  },
   button: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.md,

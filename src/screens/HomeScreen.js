@@ -35,7 +35,7 @@ function getCatIcon(cat) {
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { contas, cartoes, saldoContas, categorias, transacoes, getGastoPorCategoriaNoMes, getReceitasNoMes, getOrcamento, cardsDaTelaInicial, cardsOrdem, financiamentos, getProximasParcelasCartao, updateTransacao, objetivos } = useApp();
+  const { contas, cartoes, saldoContas, categorias, transacoes, getGastoPorCategoriaNoMes, getReceitasNoMes, getOrcamento, cardsDaTelaInicial, cardsOrdem, financiamentos, getProximasParcelasCartao, updateTransacao, objetivos, getTotalAReceberRestante } = useApp();
   const cartoesAtivos = cartoes.filter((c) => c.ativo !== false);
   const cards = cardsDaTelaInicial || {};
   const ordemBase = Array.isArray(cardsOrdem) && cardsOrdem.length > 0 ? cardsOrdem : [
@@ -96,6 +96,7 @@ export default function HomeScreen({ navigation }) {
 
   const saldo = saldoContas;
   const entradas = getReceitasNoMes(selectedMes, selectedAno);
+  const aReceberTerceiros = getTotalAReceberRestante?.() ?? 0;
   const gastosNoMes = getGastoPorCategoriaNoMes(selectedMes, selectedAno);
   const saidas = Object.values(gastosNoMes).reduce((a, b) => a + b, 0);
 
@@ -413,6 +414,14 @@ export default function HomeScreen({ navigation }) {
                       R$ {entradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </Text>
                   </View>
+                  {aReceberTerceiros > 0 && (
+                    <View style={styles.balancoValorItem}>
+                      <Text style={styles.balancoValorLabel}>A receber (terceiros)</Text>
+                      <Text style={[styles.balancoValorNum, { color: colors.primary }]}>
+                        R$ {aReceberTerceiros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </Text>
+                    </View>
+                  )}
                   <View style={styles.balancoValorItem}>
                     <Text style={styles.balancoValorLabel}>Despesas</Text>
                     <Text style={[styles.balancoValorNum, { color: colors.spending }]}>
@@ -860,6 +869,17 @@ export default function HomeScreen({ navigation }) {
               {balanceVisible ? `R$ ${entradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'R$ •••••••'}
             </Text>
           </View>
+          {aReceberTerceiros > 0 && (
+            <View style={styles.inOutItem}>
+              <View style={[styles.inOutIconWrap, { backgroundColor: colors.primary + '25' }]}>
+                <Ionicons name="people-outline" size={24} color={colors.primary} />
+              </View>
+              <Text style={styles.inOutLabel}>A receber (terceiros)</Text>
+              <Text style={[styles.inOutValue, { color: colors.primary }]}>
+                {balanceVisible ? `R$ ${aReceberTerceiros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'R$ •••••••'}
+              </Text>
+            </View>
+          )}
           <View style={styles.inOutItem}>
             <View style={[styles.inOutIconWrap, { backgroundColor: colors.spending + '25' }]}>
               <Ionicons name="arrow-down" size={24} color={colors.spending} />
