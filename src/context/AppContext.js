@@ -4,6 +4,16 @@ import { loadCategorias as loadCategoriasStorage, saveCategorias as saveCategori
 import { loadCardsTelaInicial as loadCardsStorage, saveCardsTelaInicial as saveCardsStorage } from '../utils/storage';
 import { loadFinanciamentos as loadFinanciamentosStorage, saveFinanciamentos as saveFinanciamentosStorage } from '../utils/storage';
 import { loadObjetivos as loadObjetivosStorage, saveObjetivos as saveObjetivosStorage } from '../utils/storage';
+import {
+  loadContas as loadContasStorage,
+  saveContas as saveContasStorage,
+  loadCartoes as loadCartoesStorage,
+  saveCartoes as saveCartoesStorage,
+  loadTransacoes as loadTransacoesStorage,
+  saveTransacoes as saveTransacoesStorage,
+  loadOrcamentoMensal as loadOrcamentoMensalStorage,
+  saveOrcamentoMensal as saveOrcamentoMensalStorage,
+} from '../utils/storage';
 
 const AppContext = createContext(null);
 
@@ -30,10 +40,13 @@ export function AppProvider({ children }) {
   const [contas, setContas] = useState([
     { id: 'carteira', nome: 'Carteira', saldo: 0 },
   ]);
+  const [contasLoaded, setContasLoaded] = useState(false);
   const [cartoes, setCartoes] = useState([]);
+  const [cartoesLoaded, setCartoesLoaded] = useState(false);
   const [categorias, setCategorias] = useState(categoriasPadrao);
   const [categoriasLoaded, setCategoriasLoaded] = useState(false);
   const [transacoes, setTransacoes] = useState([]);
+  const [transacoesLoaded, setTransacoesLoaded] = useState(false);
   const [cardsDaTelaInicial, setCardsDaTelaInicialState] = useState(CARDS_PADRAO);
   const [cardsOrdem, setCardsOrdemState] = useState(CARDS_ORDER_DEFAULT);
   const [cardsLoaded, setCardsLoaded] = useState(false);
@@ -41,6 +54,8 @@ export function AppProvider({ children }) {
   const [financiamentosLoaded, setFinanciamentosLoaded] = useState(false);
   const [objetivos, setObjetivosState] = useState([]);
   const [objetivosLoaded, setObjetivosLoaded] = useState(false);
+  const [orcamentoMensal, setOrcamentoMensalState] = useState({});
+  const [orcamentoLoaded, setOrcamentoLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +118,70 @@ export function AppProvider({ children }) {
     if (!objetivosLoaded) return;
     saveObjetivosStorage(objetivos);
   }, [objetivos, objetivosLoaded]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadContasStorage().then((saved) => {
+      if (!cancelled && saved && Array.isArray(saved) && saved.length > 0) {
+        setContas(saved);
+      }
+      if (!cancelled) setContasLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!contasLoaded) return;
+    saveContasStorage(contas);
+  }, [contas, contasLoaded]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadCartoesStorage().then((saved) => {
+      if (!cancelled && saved && Array.isArray(saved)) {
+        setCartoes(saved);
+      }
+      if (!cancelled) setCartoesLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!cartoesLoaded) return;
+    saveCartoesStorage(cartoes);
+  }, [cartoes, cartoesLoaded]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadTransacoesStorage().then((saved) => {
+      if (!cancelled && saved && Array.isArray(saved)) {
+        setTransacoes(saved);
+      }
+      if (!cancelled) setTransacoesLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!transacoesLoaded) return;
+    saveTransacoesStorage(transacoes);
+  }, [transacoes, transacoesLoaded]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadOrcamentoMensalStorage().then((saved) => {
+      if (!cancelled && saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
+        setOrcamentoMensalState(saved);
+      }
+      if (!cancelled) setOrcamentoLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!orcamentoLoaded) return;
+    saveOrcamentoMensalStorage(orcamentoMensal);
+  }, [orcamentoMensal, orcamentoLoaded]);
 
   const addConta = useCallback((conta) => {
     setContas((prev) => [...prev, {
@@ -311,7 +390,6 @@ export function AppProvider({ children }) {
       return prev.filter((x) => !idsSet.has(x.id));
     });
   }, []);
-  const [orcamentoMensal, setOrcamentoMensalState] = useState({});
   const setOrcamentoMensal = useCallback((mes, ano, total, porCategoria) => {
     const key = `${ano}-${mes}`;
     setOrcamentoMensalState((prev) => ({ ...prev, [key]: { total: total || 0, categorias: porCategoria || {} } }));
@@ -458,6 +536,28 @@ export function AppProvider({ children }) {
     );
   }, []);
 
+  /** Substitui todos os dados pelos importados (ex.: de CSV). parsed = { contas, cartoes, transacoes, objetivos, financiamentos, orcamentoMensal } */
+  const importReplaceAll = useCallback((parsed) => {
+    if (parsed.contas != null && Array.isArray(parsed.contas) && parsed.contas.length > 0) {
+      setContas(parsed.contas);
+    }
+    if (parsed.cartoes != null && Array.isArray(parsed.cartoes)) {
+      setCartoes(parsed.cartoes);
+    }
+    if (parsed.transacoes != null && Array.isArray(parsed.transacoes)) {
+      setTransacoes(parsed.transacoes);
+    }
+    if (parsed.objetivos != null && Array.isArray(parsed.objetivos)) {
+      setObjetivosState(parsed.objetivos);
+    }
+    if (parsed.financiamentos != null && Array.isArray(parsed.financiamentos)) {
+      setFinanciamentosState(parsed.financiamentos);
+    }
+    if (parsed.orcamentoMensal != null && typeof parsed.orcamentoMensal === 'object') {
+      setOrcamentoMensalState((prev) => ({ ...prev, ...parsed.orcamentoMensal }));
+    }
+  }, []);
+
   const getProximasParcelasCartao = useCallback(() => {
     return transacoes
       .filter((x) => x.tipo === 'despesa_cartao' && x.parcelaNumero != null && x.pago !== true)
@@ -530,6 +630,7 @@ export function AppProvider({ children }) {
     removeObjetivo,
     addDepositoObjetivo,
     removeDepositoObjetivo,
+    importReplaceAll,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

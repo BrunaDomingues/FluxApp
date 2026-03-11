@@ -4,6 +4,10 @@ const KEY_CATEGORIAS = '@fluxapp_categorias';
 const KEY_CARDS_TELA_INICIAL = '@fluxapp_cards_tela_inicial';
 const KEY_FINANCIAMENTOS = '@fluxapp_financiamentos';
 const KEY_OBJETIVOS = '@fluxapp_objetivos';
+const KEY_CONTAS = '@fluxapp_contas';
+const KEY_CARTOES = '@fluxapp_cartoes';
+const KEY_TRANSACOES = '@fluxapp_transacoes';
+const KEY_ORCAMENTO_MENSAL = '@fluxapp_orcamento_mensal';
 
 export async function loadCategorias() {
   try {
@@ -88,5 +92,89 @@ export async function saveObjetivos(objetivos) {
     await AsyncStorage.setItem(KEY_OBJETIVOS, JSON.stringify(objetivos));
   } catch (e) {
     console.warn('saveObjetivos:', e);
+  }
+}
+
+export async function loadContas() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY_CONTAS);
+    if (raw) {
+      const data = JSON.parse(raw);
+      return Array.isArray(data) ? data : null;
+    }
+  } catch (e) {
+    console.warn('loadContas:', e);
+  }
+  return null;
+}
+
+export async function saveContas(contas) {
+  try {
+    await AsyncStorage.setItem(KEY_CONTAS, JSON.stringify(contas));
+  } catch (e) {
+    console.warn('saveContas:', e);
+  }
+}
+
+export async function loadCartoes() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY_CARTOES);
+    if (raw) {
+      const data = JSON.parse(raw);
+      return Array.isArray(data) ? data : [];
+    }
+  } catch (e) {
+    console.warn('loadCartoes:', e);
+  }
+  return null;
+}
+
+export async function saveCartoes(cartoes) {
+  try {
+    await AsyncStorage.setItem(KEY_CARTOES, JSON.stringify(cartoes));
+  } catch (e) {
+    console.warn('saveCartoes:', e);
+  }
+}
+
+export async function loadTransacoes() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY_TRANSACOES);
+    if (raw) {
+      const data = JSON.parse(raw);
+      return Array.isArray(data) ? data : [];
+    }
+  } catch (e) {
+    console.warn('loadTransacoes:', e);
+  }
+  return null;
+}
+
+export async function saveTransacoes(transacoes) {
+  try {
+    await AsyncStorage.setItem(KEY_TRANSACOES, JSON.stringify(transacoes));
+  } catch (e) {
+    console.warn('saveTransacoes:', e);
+  }
+}
+
+export async function loadOrcamentoMensal() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY_ORCAMENTO_MENSAL);
+    if (raw) {
+      const data = JSON.parse(raw);
+      return data && typeof data === 'object' ? data : {};
+    }
+  } catch (e) {
+    console.warn('loadOrcamentoMensal:', e);
+  }
+  return null;
+}
+
+export async function saveOrcamentoMensal(orcamentoMensal) {
+  try {
+    await AsyncStorage.setItem(KEY_ORCAMENTO_MENSAL, JSON.stringify(orcamentoMensal || {}));
+  } catch (e) {
+    console.warn('saveOrcamentoMensal:', e);
   }
 }
