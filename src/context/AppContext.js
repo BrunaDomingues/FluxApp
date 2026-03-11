@@ -10,6 +10,7 @@ const CARDS_PADRAO = {
   pendenciasAlertas: true,
   contas: true,
   cartoes: true,
+  financiamentos: false,
   despesasPorCategoria: true,
   planejamentoMensal: true,
   economiaMensal: false,
@@ -20,7 +21,7 @@ const CARDS_PADRAO = {
 };
 
 const CARDS_ORDER_DEFAULT = [
-  'pendenciasAlertas', 'contas', 'cartoes', 'despesasPorCategoria', 'planejamentoMensal',
+  'pendenciasAlertas', 'contas', 'cartoes', 'financiamentos', 'despesasPorCategoria', 'planejamentoMensal',
   'economiaMensal', 'frequenciaGastos', 'balancoMensal', 'transacoesFavoritas', 'objetivos',
 ];
 

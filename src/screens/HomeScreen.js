@@ -37,11 +37,11 @@ const OPCOES_MESES = buildOpcoesMeses();
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { contas, cartoes, saldoContas, categorias, getGastoPorCategoriaNoMes, getReceitasNoMes, cardsDaTelaInicial, cardsOrdem } = useApp();
+  const { contas, cartoes, saldoContas, categorias, getGastoPorCategoriaNoMes, getReceitasNoMes, cardsDaTelaInicial, cardsOrdem, financiamentos } = useApp();
   const cartoesAtivos = cartoes.filter((c) => c.ativo !== false);
   const cards = cardsDaTelaInicial || {};
   const ordem = Array.isArray(cardsOrdem) && cardsOrdem.length > 0 ? cardsOrdem : [
-    'pendenciasAlertas', 'contas', 'cartoes', 'despesasPorCategoria', 'planejamentoMensal',
+    'pendenciasAlertas', 'contas', 'cartoes', 'financiamentos', 'despesasPorCategoria', 'planejamentoMensal',
     'economiaMensal', 'frequenciaGastos', 'balancoMensal', 'transacoesFavoritas', 'objetivos',
   ];
 
@@ -173,6 +173,66 @@ export default function HomeScreen({ navigation }) {
                   <TouchableOpacity style={styles.addCartaoButtonSecondary} onPress={() => navigation.navigate('AddCard')}>
                     <Ionicons name="add" size={20} color={colors.secondary} />
                     <Text style={styles.addContaButtonText}>ADICIONAR OUTRO CARTÃO</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </React.Fragment>
+        );
+      case 'financiamentos':
+        return (
+          <React.Fragment key={key}>
+            <Text style={styles.sectionTitle}>Financiamentos</Text>
+            <View style={styles.card}>
+              {financiamentos.length === 0 ? (
+                <>
+                  <View style={styles.emptyCartaoIcon}>
+                    <Ionicons name="document-text-outline" size={40} color={colors.textMuted} />
+                  </View>
+                  <Text style={styles.emptyCartaoText}>Nenhum financiamento cadastrado.</Text>
+                  <Text style={styles.emptyCartaoSub}>Registre moto, carro ou outras parcelas.</Text>
+                  <TouchableOpacity style={styles.addCartaoButton} onPress={() => navigation.navigate('Financiamentos')}>
+                    <Text style={styles.addCartaoButtonText}>VER FINANCIAMENTOS</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  {financiamentos.map((f) => {
+                    const pagas = (f.parcelas || []).filter((p) => p.pago).length;
+                    const economias = (f.parcelas || []).reduce((s, p) => {
+                      if (!p.pago || p.valorPago == null) return s;
+                      const economia = (p.valorPadrao || 0) - p.valorPago;
+                      return s + (economia > 0 ? economia : 0);
+                    }, 0);
+                    return (
+                      <TouchableOpacity
+                        key={f.id}
+                        style={styles.contaRow}
+                        onPress={() => navigation.navigate('FinanciamentoDetalhes', { financiamento: f })}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.contaRowTouch}>
+                          <View style={[styles.contaIconWrap, { backgroundColor: colors.primary + '30' }]}>
+                            <Ionicons name="document-text-outline" size={22} color={colors.primary} />
+                          </View>
+                          <View style={styles.contaInfo}>
+                            <View style={styles.contaNomeRow}>
+                              <Text style={styles.contaNome}>{f.descricao}</Text>
+                            </View>
+                            <Text style={styles.contaSaldo}>
+                              {pagas}/{f.totalParcelas} parcelas
+                              {(f.valorPadrao || 0) > 0 && ` · R$ ${(f.valorPadrao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/parcela`}
+                              {economias > 0 && ` · Economia R$ ${economias.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                            </Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TouchableOpacity style={styles.addCartaoButtonSecondary} onPress={() => navigation.navigate('Financiamentos')}>
+                    <Ionicons name="add" size={20} color={colors.secondary} />
+                    <Text style={styles.addContaButtonText}>VER TODOS OS FINANCIAMENTOS</Text>
                   </TouchableOpacity>
                 </>
               )}
