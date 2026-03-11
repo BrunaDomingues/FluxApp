@@ -32,6 +32,18 @@ export const colors = {
   categoryEducacao: '#F59E0B',
 };
 
+/** Cores para gráfico de gastos por categoria (ciclo) */
+export const categoryChartColors = [
+  colors.categoryMoradia,
+  colors.categoryAlimentacao,
+  colors.categoryLazer,
+  colors.categoryTransporte,
+  colors.categorySaude,
+  colors.categoryEducacao,
+  colors.primary,
+  colors.secondary,
+];
+
 export const spacing = {
   xs: 4,
   sm: 8,

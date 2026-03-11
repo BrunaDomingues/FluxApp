@@ -1,8 +1,27 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { categoriasPadrao } from '../constants/categorias';
 import { loadCategorias as loadCategoriasStorage, saveCategorias as saveCategoriasStorage } from '../utils/storage';
+import { loadCardsTelaInicial as loadCardsStorage, saveCardsTelaInicial as saveCardsStorage } from '../utils/storage';
 
 const AppContext = createContext(null);
+
+const CARDS_PADRAO = {
+  pendenciasAlertas: true,
+  contas: true,
+  cartoes: true,
+  despesasPorCategoria: true,
+  planejamentoMensal: true,
+  economiaMensal: false,
+  frequenciaGastos: false,
+  balancoMensal: true,
+  transacoesFavoritas: false,
+  objetivos: false,
+};
+
+const CARDS_ORDER_DEFAULT = [
+  'pendenciasAlertas', 'contas', 'cartoes', 'despesasPorCategoria', 'planejamentoMensal',
+  'economiaMensal', 'frequenciaGastos', 'balancoMensal', 'transacoesFavoritas', 'objetivos',
+];
 
 export function AppProvider({ children }) {
   const [contas, setContas] = useState([
@@ -12,6 +31,9 @@ export function AppProvider({ children }) {
   const [categorias, setCategorias] = useState(categoriasPadrao);
   const [categoriasLoaded, setCategoriasLoaded] = useState(false);
   const [transacoes, setTransacoes] = useState([]);
+  const [cardsDaTelaInicial, setCardsDaTelaInicialState] = useState(CARDS_PADRAO);
+  const [cardsOrdem, setCardsOrdemState] = useState(CARDS_ORDER_DEFAULT);
+  const [cardsLoaded, setCardsLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -25,12 +47,36 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!categoriasLoaded) return;
-    saveCategoriasStorage(categorias);
-  }, [categorias, categoriasLoaded]);
+    let cancelled = false;
+    loadCardsStorage().then((saved) => {
+      if (!cancelled && saved && typeof saved === 'object') {
+        setCardsDaTelaInicialState((prev) => ({ ...CARDS_PADRAO, ...(saved.enabled || saved) }));
+        if (Array.isArray(saved.order) && saved.order.length > 0) {
+          setCardsOrdemState(saved.order);
+        }
+      }
+      if (!cancelled) setCardsLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!cardsLoaded) return;
+    saveCardsStorage({ enabled: cardsDaTelaInicial, order: cardsOrdem });
+  }, [cardsDaTelaInicial, cardsOrdem, cardsLoaded]);
 
   const addConta = useCallback((conta) => {
-    setContas((prev) => [...prev, { ...conta, id: Date.now().toString(), saldo: conta.saldoInicial || 0 }]);
+    setContas((prev) => [...prev, {
+      id: Date.now().toString(),
+      nome: conta.nome || '',
+      saldo: conta.saldoInicial ?? 0,
+      instituicao: conta.instituicao ?? null,
+      descricao: conta.descricao ?? '',
+      tipoConta: conta.tipoConta ?? 'corrente',
+      cor: conta.cor ?? null,
+      incluirNaSomaTelaInicial: conta.incluirNaSomaTelaInicial !== false,
+      arquivada: false,
+    }]);
   }, []);
 
   const updateConta = useCallback((id, payload) => {
@@ -190,7 +236,9 @@ export function AppProvider({ children }) {
       .reduce((s, x) => s + (x.valor || 0), 0);
   }, [transacoes]);
 
-  const saldoContas = contas.reduce((s, c) => s + (c.saldo || 0), 0);
+  const saldoContas = contas
+    .filter((c) => c.incluirNaSomaTelaInicial !== false)
+    .reduce((s, c) => s + (c.saldo || 0), 0);
   const totalReceitas = transacoes.filter((x) => x.tipo === 'entrada').reduce((s, x) => s + (x.valor || 0), 0);
   const totalDespesas = transacoes.filter((x) => x.tipo === 'saida' || x.tipo === 'despesa_cartao').reduce((s, x) => s + Math.abs(x.valor || 0), 0);
 
@@ -200,6 +248,10 @@ export function AppProvider({ children }) {
     categorias,
     setCategorias,
     transacoes,
+    cardsDaTelaInicial,
+    setCardsDaTelaInicial: setCardsDaTelaInicialState,
+    cardsOrdem,
+    setCardsOrdem: setCardsOrdemState,
     addConta,
     updateConta,
     removeConta,

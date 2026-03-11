@@ -23,7 +23,7 @@ const opcoesGerenciar = [
   { id: 'objetivos', label: 'Objetivos', icon: 'flag-outline', screen: null },
   { id: 'importar', label: 'Importar dados', icon: 'cloud-upload-outline', screen: null },
   { id: 'exportar', label: 'Exportar relatório', icon: 'cloud-download-outline', screen: null },
-  { id: 'cards', label: 'Cards da tela inicial', icon: 'grid-outline', screen: null },
+  { id: 'cards', label: 'Cards da tela inicial', icon: 'grid-outline', screen: 'CardsDaTelaInicial' },
   { id: 'calculadoras', label: 'Calculadoras', icon: 'calculator-outline', screen: null },
   { id: 'modoViagem', label: 'Modo viagem', icon: 'airplane-outline', toggle: true },
   { id: 'lembrete', label: 'Lembrete diário', icon: 'notifications-outline', screen: null },

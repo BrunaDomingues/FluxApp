@@ -27,18 +27,25 @@ function describeArc(cx, cy, r, startAngle, endAngle) {
   ].join(' ');
 }
 
-const CATEGORIAS = [
-  { label: 'Moradia', value: 350, color: colors.categoryMoradia },
-  { label: 'Alimentação', value: 450, color: colors.categoryAlimentacao },
-  { label: 'Transporte', value: 180, color: colors.categoryTransporte },
-  { label: 'Lazer', value: 120, color: colors.categoryLazer },
-];
+/**
+ * data: array de { label, value, color } (apenas itens com value > 0)
+ */
+export default function DonutChart({ data = [] }) {
+  const total = data.reduce((s, c) => s + c.value, 0);
 
-export default function DonutChart() {
-  const total = CATEGORIAS.reduce((s, c) => s + c.value, 0);
+  if (data.length === 0 || total <= 0) {
+    return (
+      <View style={styles.wrapper}>
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyText}>Nenhum gasto por categoria neste mês</Text>
+          <Text style={styles.emptySub}>As despesas lançadas aparecerão aqui</Text>
+        </View>
+      </View>
+    );
+  }
+
   let startAngle = 0;
-
-  const segments = CATEGORIAS.map((cat) => {
+  const segments = data.map((cat) => {
     const pct = (cat.value / total) * 100;
     const angle = (pct / 100) * 360;
     const endAngle = startAngle + angle;
@@ -51,9 +58,9 @@ export default function DonutChart() {
     <View style={styles.wrapper}>
       <Svg width={SIZE} height={SIZE} style={styles.svg}>
         <G>
-          {segments.map((seg) => (
+          {segments.map((seg, i) => (
             <Path
-              key={seg.label}
+              key={`${seg.label}-${i}`}
               d={seg.d}
               fill="none"
               stroke={seg.color}
@@ -70,8 +77,8 @@ export default function DonutChart() {
         </G>
       </Svg>
       <View style={styles.legend}>
-        {segments.map((seg) => (
-          <View key={seg.label} style={styles.legendRow}>
+        {segments.map((seg, i) => (
+          <View key={`${seg.label}-${i}`} style={styles.legendRow}>
             <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
             <Text style={styles.legendText}>
               {seg.label} R$ {seg.value.toFixed(2)} ({seg.pct.toFixed(0)}%)
@@ -108,5 +115,18 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 13,
     color: colors.textSecondary,
+  },
+  emptyWrap: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 15,
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: colors.textMuted,
   },
 });

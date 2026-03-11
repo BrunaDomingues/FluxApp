@@ -1,9 +1,11 @@
+import "react-native-gesture-handler";
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AppProvider, useApp } from './src/context/AppContext';
 import CustomTabBar from './src/components/CustomTabBar';
@@ -21,6 +23,7 @@ import AddTransactionScreen from './src/screens/AddTransactionScreen';
 import PlanningScreen from './src/screens/PlanningScreen';
 import MaisScreen from './src/screens/MaisScreen';
 import DefinirOrcamentoScreen from './src/screens/DefinirOrcamentoScreen';
+import CardsDaTelaInicialScreen from './src/screens/CardsDaTelaInicialScreen';
 import { colors } from './src/constants/theme';
 
 const Stack = createStackNavigator();
@@ -48,7 +51,8 @@ function MainTabs() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
       <AppProvider>
         <NavigationContainer>
           <StatusBar style="light" />
@@ -68,9 +72,11 @@ export default function App() {
             <Stack.Screen name="Categories" component={CategoriesScreen} />
             <Stack.Screen name="AddTransaction" component={AddTransactionScreen} />
             <Stack.Screen name="DefinirOrcamento" component={DefinirOrcamentoScreen} />
+            <Stack.Screen name="CardsDaTelaInicial" component={CardsDaTelaInicialScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </AppProvider>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
