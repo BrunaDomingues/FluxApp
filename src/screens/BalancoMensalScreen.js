@@ -70,7 +70,7 @@ export default function BalancoMensalScreen({ navigation }) {
   const [menuGraficoPosition, setMenuGraficoPosition] = useState({ top: 0, right: 0 });
   const menuGraficoButtonRef = useRef(null);
 
-  const { contas, transacoes, categorias } = useApp();
+  const { contas, transacoes, categorias, getValorPartePrincipal } = useApp();
   const contasVisiveis = contas.filter((c) => !c.arquivada);
 
   const transacoesNoMes = useMemo(() => {
@@ -111,10 +111,10 @@ export default function BalancoMensalScreen({ navigation }) {
     transacoesFiltradas.forEach((t) => {
       if (t.tipo !== 'saida' && t.tipo !== 'despesa_cartao') return;
       const id = t.categoriaId || 'outros';
-      map[id] = (map[id] || 0) + Math.abs(t.valor || 0);
+      map[id] = (map[id] || 0) + getValorPartePrincipal(t);
     });
     return map;
-  }, [transacoesFiltradas]);
+  }, [transacoesFiltradas, getValorPartePrincipal]);
   const despesasTotal = Object.values(gastoPorCat).reduce((s, v) => s + v, 0);
   const balancoTotal = receitasTotal - despesasTotal;
 
@@ -151,12 +151,12 @@ export default function BalancoMensalScreen({ navigation }) {
         transacoesFiltradas.forEach((t) => {
           if (t.contaId !== conta.id) return;
           if (t.tipo === 'entrada') receita += t.valor || 0;
-          if (t.tipo === 'saida') despesa += Math.abs(t.valor || 0);
+          if (t.tipo === 'saida' || t.tipo === 'despesa_cartao') despesa += getValorPartePrincipal(t);
         });
         return { conta, receita, despesa, saldo: receita - despesa };
       })
       .filter((x) => x.receita !== 0 || x.despesa !== 0);
-  }, [contasVisiveis, transacoesFiltradas]);
+  }, [contasVisiveis, transacoesFiltradas, getValorPartePrincipal]);
 
   const dadosGraficoDespesas = useMemo(() => {
     return Object.entries(gastoPorCat)

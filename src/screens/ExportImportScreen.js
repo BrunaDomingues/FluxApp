@@ -42,6 +42,7 @@ export default function ExportImportScreen({ navigation }) {
     financiamentos,
     orcamentoMensal,
     importReplaceAll,
+    totalDespesas,
   } = useApp();
   const [loading, setLoading] = useState(false);
   const [exportMsg, setExportMsg] = useState(null);
@@ -161,7 +162,6 @@ export default function ExportImportScreen({ navigation }) {
   };
 
   const totalReceitas = (transacoes || []).filter((x) => x.tipo === 'entrada').reduce((s, x) => s + (x.valor || 0), 0);
-  const totalDespesas = (transacoes || []).filter((x) => x.tipo === 'saida' || x.tipo === 'despesa_cartao').reduce((s, x) => s + Math.abs(x.valor || 0), 0);
   const saldo = (contas || []).filter((c) => c.incluirNaSomaTelaInicial !== false).reduce((s, c) => s + (c.saldo || 0), 0);
 
   const ResumoView = (

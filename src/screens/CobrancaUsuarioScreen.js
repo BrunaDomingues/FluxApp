@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { maskDateInput } from '../utils/dateMask';
 
 let captureRef;
 let Sharing;
@@ -46,6 +47,7 @@ export default function CobrancaUsuarioScreen({ navigation }) {
   const [modalRecebimentoVisible, setModalRecebimentoVisible] = useState(false);
   const [valorRecebimento, setValorRecebimento] = useState('');
   const [payerId, setPayerId] = useState(null);
+  const [dataPagamento, setDataPagamento] = useState('');
   const viewRef = useRef(null);
 
   const principalId = getPrincipalUserId();
@@ -169,6 +171,8 @@ export default function CobrancaUsuarioScreen({ navigation }) {
     setPayerId(quemTinhaRestante);
     const restante = getValorAReceberRestanteDeUsuario?.(quemTinhaRestante) ?? 0;
     setValorRecebimento(restante > 0 ? restante.toFixed(2).replace('.', ',') : '');
+    const hoje = new Date();
+    setDataPagamento(hoje.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }));
     setModalRecebimentoVisible(true);
     setMsg(null);
   };
@@ -196,9 +200,10 @@ export default function CobrancaUsuarioScreen({ navigation }) {
       setMsg(`O valor não pode ser maior que o restante a receber desse usuário (R$ ${restantePayer.toFixed(2).replace('.', ',')}).`);
       return;
     }
-    addRecebimento(quemPagou, valor);
+    addRecebimento(quemPagou, valor, undefined, dataPagamento?.trim() || undefined);
     setModalRecebimentoVisible(false);
     setValorRecebimento('');
+    setDataPagamento('');
     setPayerId(null);
     setMsg('Recebimento registrado! O valor foi adicionado às receitas (despesa permanece como está).');
   };
@@ -400,6 +405,15 @@ export default function CobrancaUsuarioScreen({ navigation }) {
             </View>
             {payerId && (
               <>
+                <Text style={styles.modalLabel}>Data do pagamento</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={dataPagamento}
+                  onChangeText={(t) => setDataPagamento(maskDateInput(t))}
+                  placeholder="dd/mm/aaaa — vazio = hoje"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="numeric"
+                />
                 <Text style={styles.modalLabel}>Valor pago (receita)</Text>
                 <TextInput
                   style={styles.modalInput}

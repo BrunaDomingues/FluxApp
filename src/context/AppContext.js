@@ -18,6 +18,7 @@ import {
   loadRecebimentosUsuarios as loadRecebimentosUsuariosStorage,
   saveRecebimentosUsuarios as saveRecebimentosUsuariosStorage,
 } from '../utils/storage';
+import { parseDateDDMM } from '../utils/dateMask';
 
 const AppContext = createContext(null);
 
@@ -449,9 +450,10 @@ export function AppProvider({ children }) {
     });
   }, []);
 
-  // Gasto por categoria no mês (apenas despesas)
+  // Gasto por categoria no mês (apenas despesas). Em despesas divididas, soma só a parte do principal.
   // Para cartão de crédito: considera o mês de VENCIMENTO da parcela (o que será pago no mês), não o mês da compra
   const getGastoPorCategoriaNoMes = useCallback((mes, ano) => {
+    const principalId = usuarios.find((u) => u.principal === true)?.id;
     const despesas = transacoes.filter((t) => {
       if (t.tipo === 'saida') return t.mes === mes && t.ano === ano;
       if (t.tipo === 'despesa_cartao') {
@@ -465,10 +467,20 @@ export function AppProvider({ children }) {
     const porCat = {};
     despesas.forEach((t) => {
       const id = t.categoriaId || 'outros';
-      porCat[id] = (porCat[id] || 0) + Math.abs(t.valor || 0);
+      let valor = Math.abs(t.valor || 0);
+      const d = t.divisao;
+      if (d?.partes?.length && principalId) {
+        const parte = d.partes.find((p) => p.userId === principalId);
+        if (parte) {
+          let pct = parte.porcentagem;
+          if (pct == null && d.tipo === 'igual') pct = 100 / d.partes.length;
+          valor = Math.round(valor * ((pct || 0) / 100) * 100) / 100;
+        }
+      }
+      porCat[id] = (porCat[id] || 0) + valor;
     });
     return porCat;
-  }, [transacoes]);
+  }, [transacoes, usuarios]);
 
   const getReceitasNoMes = useCallback((mes, ano) => {
     return transacoes
@@ -657,15 +669,29 @@ export function AppProvider({ children }) {
     return Math.round(total * 100) / 100;
   }, [usuarios, getPrincipalUserId, getValorAReceberRestanteDeUsuario]);
 
-  /** Registra recebimento de valor do usuário userId: adiciona receita e reduz "a receber". */
-  const addRecebimento = useCallback((userId, valor, contaId) => {
+  /** Registra recebimento de valor do usuário userId: adiciona receita e reduz "a receber". dataPagamento opcional "dd/mm/yyyy" — se vazio usa hoje. */
+  const addRecebimento = useCallback((userId, valor, contaId, dataPagamento) => {
     const id = Date.now().toString();
     const user = usuarios.find((u) => u.id === userId);
     const nome = user?.nome || 'Usuário';
     const now = new Date();
-    const data = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const mes = now.getMonth();
-    const ano = now.getFullYear();
+    let data, mes, ano;
+    if (dataPagamento && typeof dataPagamento === 'string' && dataPagamento.trim()) {
+      const parsed = parseDateDDMM(dataPagamento.trim());
+      if (parsed) {
+        mes = parsed.month;
+        ano = parsed.year;
+        data = `${String(parsed.day).padStart(2, '0')}/${String(parsed.month + 1).padStart(2, '0')}/${parsed.year}`;
+      } else {
+        data = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        mes = now.getMonth();
+        ano = now.getFullYear();
+      }
+    } else {
+      data = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      mes = now.getMonth();
+      ano = now.getFullYear();
+    }
     const valorNum = Math.round(Math.abs(Number(valor) || 0) * 100) / 100;
     if (valorNum <= 0) return;
     const conta = contaId || contas.filter((c) => !c.arquivada)[0]?.id;
@@ -743,7 +769,9 @@ export function AppProvider({ children }) {
     .filter((c) => !c.arquivada)
     .reduce((s, c) => s + (c.saldo || 0), 0);
   const totalReceitas = transacoes.filter((x) => x.tipo === 'entrada').reduce((s, x) => s + (x.valor || 0), 0);
-  const totalDespesas = transacoes.filter((x) => x.tipo === 'saida' || x.tipo === 'despesa_cartao').reduce((s, x) => s + Math.abs(x.valor || 0), 0);
+  const totalDespesas = transacoes
+    .filter((x) => x.tipo === 'saida' || x.tipo === 'despesa_cartao')
+    .reduce((s, x) => s + getValorPartePrincipal(x), 0);
 
   const value = {
     contas,

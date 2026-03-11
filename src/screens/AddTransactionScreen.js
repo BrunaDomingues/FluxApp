@@ -10,7 +10,7 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
@@ -30,6 +30,7 @@ const ANOS = buildAnos();
 
 export default function AddTransactionScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const bottomSafe = Math.max(insets.bottom, 48);
   const { categorias, contas, cartoes, addTransacao, updateTransacao, removeTransacao, transacoes, usuarios, getPrincipalUserId } = useApp();
   const editar = route?.params?.editar;
   const isEditMode = !!editar;
@@ -264,14 +265,14 @@ export default function AddTransactionScreen({ navigation, route }) {
     : (isTransferencia ? 'Transferência' : tipo === 'entrada' ? 'Nova entrada' : isCartao ? 'Despesa no cartão' : 'Nova despesa');
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>{title}</Text>
       </View>
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 120 + bottomSafe }]} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>Valor (R$)</Text>
         <TextInput
           style={styles.input}
@@ -625,7 +626,7 @@ export default function AddTransactionScreen({ navigation, route }) {
           </TouchableOpacity>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
