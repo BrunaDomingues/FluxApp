@@ -8,6 +8,7 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius, categoryChartColors } from '../constants/theme';
@@ -563,18 +564,84 @@ export default function HomeScreen({ navigation }) {
           </React.Fragment>
         );
       }
-      case 'economiaMensal':
+      case 'economiaMensal': {
+        const economia = entradas - saidas;
+        const pctEconomia = entradas > 0 ? (economia / entradas) * 100 : 0;
+        const pctExcesso = entradas > 0 && economia < 0 ? (Math.abs(economia) / entradas) * 100 : 0;
+        const RING_R = 44;
+        const RING_STROKE = 10;
+        const circumference = 2 * Math.PI * RING_R;
+        const pctRing = economia >= 0 ? Math.min(100, Math.max(0, pctEconomia)) : 0;
+        const dashLength = (pctRing / 100) * circumference;
         return (
           <React.Fragment key={key}>
             <Text style={styles.sectionTitle}>Economia mensal</Text>
             <View style={styles.card}>
               <View style={styles.economiaRow}>
-                <Ionicons name="trending-up-outline" size={32} color={colors.positive} />
-                <Text style={styles.placeholderCardText}>Em breve: acompanhe sua economia mensal.</Text>
+                <View style={styles.economiaRingWrap}>
+                  <Svg width={RING_R * 2 + RING_STROKE} height={RING_R * 2 + RING_STROKE} style={styles.economiaRingSvg}>
+                    <Circle
+                      cx={RING_R + RING_STROKE / 2}
+                      cy={RING_R + RING_STROKE / 2}
+                      r={RING_R}
+                      fill="none"
+                      stroke={colors.backgroundCardElevated}
+                      strokeWidth={RING_STROKE}
+                    />
+                    {pctRing > 0 && (
+                      <Circle
+                        cx={RING_R + RING_STROKE / 2}
+                        cy={RING_R + RING_STROKE / 2}
+                        r={RING_R}
+                        fill="none"
+                        stroke={economia >= 0 ? colors.positive : colors.spending}
+                        strokeWidth={RING_STROKE}
+                        strokeDasharray={`${dashLength} ${circumference}`}
+                        strokeLinecap="round"
+                        transform={`rotate(-90 ${RING_R + RING_STROKE / 2} ${RING_R + RING_STROKE / 2})`}
+                      />
+                    )}
+                  </Svg>
+                  <View style={styles.economiaRingCenter}>
+                    <Text style={[styles.economiaRingPct, { color: economia >= 0 ? colors.positive : colors.textMuted }]}>
+                      {economia >= 0 ? `${pctEconomia.toFixed(0)}%` : '0%'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.economiaTextWrap}>
+                  {economia >= 0 ? (
+                    <>
+                      <Text style={styles.economiaTitulo}>Parabéns!</Text>
+                      <Text style={styles.economiaValor}>
+                        Sua economia este mês é de R$ {economia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </Text>
+                      <Text style={styles.economiaSub}>
+                        Você economizou {pctEconomia.toFixed(2).replace('.', ',')}% dos seus ganhos
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.economiaTitulo}>Ops!</Text>
+                      <Text style={styles.economiaValor}>
+                        Este mês você gastou R$ {Math.abs(economia).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a mais do que ganhou!
+                      </Text>
+                      <Text style={styles.economiaSub}>
+                        Você gastou {pctExcesso.toFixed(2).replace('.', ',')}% a mais de seus ganhos
+                      </Text>
+                      <View style={styles.economiaDicaWrap}>
+                        <Ionicons name="star-outline" size={14} color={colors.textMuted} />
+                        <Text style={styles.economiaDica}>
+                          Calma, calma, não criemos pânico! Pense bem nas próximas despesas e reveja suas metas e planejamento.
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </View>
               </View>
             </View>
           </React.Fragment>
         );
+      }
       case 'frequenciaGastos':
         return (
           <React.Fragment key={key}>
@@ -1282,5 +1349,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  economiaRingWrap: {
+    position: 'relative',
+    width: 108,
+    height: 108,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  economiaRingSvg: {
+    position: 'absolute',
+  },
+  economiaRingCenter: {
+    position: 'absolute',
+    width: 108,
+    height: 108,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  economiaRingPct: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  economiaTextWrap: {
+    flex: 1,
+  },
+  economiaTitulo: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  economiaValor: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  economiaSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  economiaDicaWrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 10,
+  },
+  economiaDica: {
+    fontSize: 12,
+    color: colors.textMuted,
+    flex: 1,
   },
 });

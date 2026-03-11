@@ -24,11 +24,17 @@ const CORES_OBJETIVO = [
 ];
 
 const ICONES_OBJETIVO = [
-  'add', 'cash-outline', 'car-outline', 'home-outline', 'construct-outline',
-  'airplane-outline', 'medkit-outline', 'document-text-outline', 'trophy-outline',
-  'heart-outline', 'gift-outline', 'wallet-outline', 'card-outline', 'book-outline',
-  'cafe-outline', 'restaurant-outline', 'bus-outline', 'bicycle-outline',
-  'pricetag-outline', 'calculator-outline', 'calendar-outline', 'flag-outline',
+  'restaurant-outline', 'car-outline', 'shirt-outline', 'scan-outline', 'umbrella-outline',
+  'pulse-outline', 'home-outline', 'book-outline', 'cash-outline', 'gift-outline',
+  'trending-up-outline', 'shield-checkmark-outline', 'ellipsis-horizontal-outline', 'airplane-outline', 'people-outline',
+  'business-outline', 'bag-outline', 'bicycle-outline', 'paw-outline', 'bookmark-outline',
+  'briefcase-outline', 'bus-outline', 'calendar-outline', 'videocam-outline', 'camera-outline',
+  'cart-outline', 'wallet-outline', 'phone-portrait-outline', 'stats-chart-outline', 'card-outline',
+  'clipboard-outline', 'cafe-outline', 'chatbubble-outline', 'document-text-outline', 'desktop-outline',
+  'diamond-outline', 'globe-outline', 'barbell-outline', 'mail-outline', 'happy-outline',
+  'film-outline', 'flag-outline', 'flower-outline', 'brush-outline', 'game-controller-outline',
+  'musical-notes-outline', 'construct-outline', 'heart-outline', 'trophy-outline', 'add',
+  'calculator-outline', 'pricetag-outline', 'medkit-outline', 'nutrition-outline', 'school-outline',
 ];
 
 function parseDataLimite(str) {
