@@ -40,10 +40,15 @@ export default function HomeScreen({ navigation }) {
   const { contas, cartoes, saldoContas, categorias, getGastoPorCategoriaNoMes, getReceitasNoMes, cardsDaTelaInicial, cardsOrdem, financiamentos } = useApp();
   const cartoesAtivos = cartoes.filter((c) => c.ativo !== false);
   const cards = cardsDaTelaInicial || {};
-  const ordem = Array.isArray(cardsOrdem) && cardsOrdem.length > 0 ? cardsOrdem : [
+  const ordemBase = Array.isArray(cardsOrdem) && cardsOrdem.length > 0 ? cardsOrdem : [
     'pendenciasAlertas', 'contas', 'cartoes', 'financiamentos', 'despesasPorCategoria', 'planejamentoMensal',
     'economiaMensal', 'frequenciaGastos', 'balancoMensal', 'transacoesFavoritas', 'objetivos',
   ];
+  const ordem = [...ordemBase];
+  [
+    'pendenciasAlertas', 'contas', 'cartoes', 'financiamentos', 'despesasPorCategoria', 'planejamentoMensal',
+    'economiaMensal', 'frequenciaGastos', 'balancoMensal', 'transacoesFavoritas', 'objetivos',
+  ].forEach((k) => { if (!ordem.includes(k)) ordem.push(k); });
 
   const now = new Date();
   const [selectedMes, setSelectedMes] = useState(now.getMonth());
@@ -198,8 +203,11 @@ export default function HomeScreen({ navigation }) {
               ) : (
                 <>
                   {financiamentos.map((f) => {
-                    const pagas = (f.parcelas || []).filter((p) => p.pago).length;
-                    const economias = (f.parcelas || []).reduce((s, p) => {
+                    const parcelas = f.parcelas || [];
+                    const pagas = parcelas.filter((p) => p.pago).length;
+                    const totalFinanciamento = (f.totalParcelas || 0) * (f.valorPadrao || 0);
+                    const totalPago = parcelas.reduce((s, p) => s + (p.pago ? (p.valorPago ?? p.valorPadrao ?? 0) : 0), 0);
+                    const economias = parcelas.reduce((s, p) => {
                       if (!p.pago || p.valorPago == null) return s;
                       const economia = (p.valorPadrao || 0) - p.valorPago;
                       return s + (economia > 0 ? economia : 0);
@@ -207,25 +215,58 @@ export default function HomeScreen({ navigation }) {
                     return (
                       <TouchableOpacity
                         key={f.id}
-                        style={styles.contaRow}
+                        style={[styles.contaRow, styles.finItemRow]}
                         onPress={() => navigation.navigate('FinanciamentoDetalhes', { financiamento: f })}
                         activeOpacity={0.7}
                       >
-                        <View style={styles.contaRowTouch}>
-                          <View style={[styles.contaIconWrap, { backgroundColor: colors.primary + '30' }]}>
-                            <Ionicons name="document-text-outline" size={22} color={colors.primary} />
-                          </View>
-                          <View style={styles.contaInfo}>
-                            <View style={styles.contaNomeRow}>
-                              <Text style={styles.contaNome}>{f.descricao}</Text>
+                        <View style={styles.finRowTouch}>
+                          {/* Row 1: ícone + nome */}
+                          <View style={styles.finNomeRow}>
+                            <View style={[styles.contaIconWrap, { backgroundColor: colors.primary + '30' }]}>
+                              <Ionicons name="document-text-outline" size={22} color={colors.primary} />
                             </View>
-                            <Text style={styles.contaSaldo}>
-                              {pagas}/{f.totalParcelas} parcelas
-                              {(f.valorPadrao || 0) > 0 && ` · R$ ${(f.valorPadrao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/parcela`}
-                              {economias > 0 && ` · Economia R$ ${economias.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                            </Text>
+                            <Text style={styles.contaNome} numberOfLines={1}>{f.descricao}</Text>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                           </View>
-                          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                          {/* Row 2: dados */}
+                          <View style={styles.finDadosWrap}>
+                            <View style={styles.finDadoRow}>
+                              <Text style={styles.finDadoLabel}>Parcelas</Text>
+                              <Text style={styles.finDadoValor}>{pagas}/{f.totalParcelas}</Text>
+                            </View>
+                            {(f.valorPadrao || 0) > 0 && (
+                              <View style={styles.finDadoRow}>
+                                <Text style={styles.finDadoLabel}>Valor/parcela</Text>
+                                <Text style={styles.finDadoValor}>
+                                  R$ {(f.valorPadrao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </Text>
+                              </View>
+                            )}
+                            {totalFinanciamento > 0 && (
+                              <View style={styles.finDadoRow}>
+                                <Text style={styles.finDadoLabel}>Total do financiamento</Text>
+                                <Text style={styles.finDadoValor}>
+                                  R$ {totalFinanciamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </Text>
+                              </View>
+                            )}
+                            {(pagas > 0 || totalPago > 0) && (
+                              <View style={styles.finDadoRow}>
+                                <Text style={styles.finDadoLabel}>Total pago</Text>
+                                <Text style={styles.finDadoValor}>
+                                  R$ {totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </Text>
+                              </View>
+                            )}
+                            {economias > 0 && (
+                              <View style={styles.finDadoRow}>
+                                <Text style={styles.finDadoLabel}>Economia</Text>
+                                <Text style={styles.finEconomiaValor}>
+                                  R$ {economias.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
                         </View>
                       </TouchableOpacity>
                     );
@@ -622,6 +663,51 @@ const styles = StyleSheet.create({
   contaInfo: { flex: 1 },
   contaNome: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, flex: 1 },
   contaSaldo: { fontSize: 14, color: colors.textMuted, marginTop: 2 },
+  finSubline: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  finEconomiaLine: { fontSize: 13, color: colors.positive, marginTop: 2 },
+  finHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  finNomeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  finRowTouch: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    flex: 1,
+  },
+  finDadosWrap: {
+    marginTop: spacing.sm,
+    width: '100%',
+  },
+  finDadoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  finDadoLabel: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  finDadoValor: {
+    fontSize: 13,
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
+  finEconomiaValor: {
+    fontSize: 13,
+    color: colors.positive,
+    fontWeight: '600',
+  },
+  finItemRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: spacing.sm,
+    paddingBottom: spacing.md,
+  },
   addContaButton: {
     flexDirection: 'row',
     alignItems: 'center',
