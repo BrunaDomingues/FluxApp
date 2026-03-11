@@ -38,7 +38,7 @@ export default function CartoesScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Cartões de crédito</Text>
+        <Text style={styles.title}>Cartões</Text>
       </View>
       <ScrollView
         style={styles.scroll}

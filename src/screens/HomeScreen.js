@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
-  FlatList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
@@ -15,25 +14,15 @@ import DonutChart from '../components/DonutChart';
 import { useApp } from '../context/AppContext';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const MESES_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-function buildOpcoesMeses() {
-  const now = new Date();
-  const anoAtual = now.getFullYear();
-  const mesAtual = now.getMonth();
-  const opcoes = [];
-  for (let i = 0; i < 24; i++) {
-    let mes = mesAtual - i;
-    let ano = anoAtual;
-    while (mes < 0) {
-      mes += 12;
-      ano -= 1;
-    }
-    opcoes.push({ mes, ano, label: `${MESES[mes]} ${ano}` });
-  }
-  return opcoes;
+function buildAnos() {
+  const anoAtual = new Date().getFullYear();
+  const anos = [];
+  for (let a = anoAtual - 5; a <= anoAtual + 10; a++) anos.push(a);
+  return anos;
 }
-
-const OPCOES_MESES = buildOpcoesMeses();
+const ANOS = buildAnos();
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -441,7 +430,7 @@ export default function HomeScreen({ navigation }) {
             onPress={() => setMonthModalVisible(true)}
             activeOpacity={0.8}
           >
-            <Text style={styles.monthLabel}>{nomeMes}</Text>
+            <Text style={styles.monthLabel}>{nomeMes} {selectedAno}</Text>
             <Ionicons name="chevron-down" size={18} color={colors.textPrimary} style={styles.monthChevron} />
           </TouchableOpacity>
           {/*
@@ -464,36 +453,52 @@ export default function HomeScreen({ navigation }) {
             onPress={() => setMonthModalVisible(false)}
           >
             <View style={styles.monthModalContent}>
-              <Text style={styles.monthModalTitle}>Selecionar mês</Text>
-              <FlatList
-                data={OPCOES_MESES}
-                keyExtractor={(item) => `${item.ano}-${item.mes}`}
-                renderItem={({ item }) => (
+              <Text style={styles.monthModalTitle}>Mês e ano</Text>
+              <Text style={styles.monthModalLabel}>Ano</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.monthModalAnosRow}
+                style={styles.monthModalAnosScroll}
+              >
+                {ANOS.map((ano) => (
                   <TouchableOpacity
+                    key={ano}
+                    style={[styles.monthModalAnoPill, selectedAno === ano && styles.monthModalAnoPillSelected]}
+                    onPress={() => setSelectedAno(ano)}
+                  >
+                    <Text style={[styles.monthModalAnoText, selectedAno === ano && styles.monthModalAnoTextSelected]}>{ano}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <Text style={styles.monthModalLabel}>Mês</Text>
+              <View style={styles.monthGrid}>
+                {MESES_SHORT.map((nome, idx) => (
+                  <TouchableOpacity
+                    key={idx}
                     style={[
-                      styles.monthModalItem,
-                      item.mes === selectedMes && item.ano === selectedAno && styles.monthModalItemSelected,
+                      styles.monthGridItem,
+                      selectedMes === idx && styles.monthGridItemSelected,
                     ]}
                     onPress={() => {
-                      setSelectedMes(item.mes);
-                      setSelectedAno(item.ano);
+                      setSelectedMes(idx);
                       setMonthModalVisible(false);
                     }}
                   >
                     <Text
                       style={[
-                        styles.monthModalItemText,
-                        item.mes === selectedMes && item.ano === selectedAno && styles.monthModalItemTextSelected,
+                        styles.monthGridItemText,
+                        selectedMes === idx && styles.monthGridItemTextSelected,
                       ]}
                     >
-                      {item.label}
+                      {nome}
                     </Text>
-                    {item.mes === selectedMes && item.ano === selectedAno && (
-                      <Ionicons name="checkmark" size={20} color={colors.primary} />
-                    )}
                   </TouchableOpacity>
-                )}
-              />
+                ))}
+              </View>
+              <TouchableOpacity style={styles.monthModalFechar} onPress={() => setMonthModalVisible(false)}>
+                <Text style={styles.monthModalFecharText}>Fechar</Text>
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         </Modal>
@@ -629,24 +634,59 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
-  monthModalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
+  monthModalLabel: {
+    fontSize: 13,
+    color: colors.textMuted,
     paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xs,
   },
-  monthModalItemSelected: {
-    backgroundColor: colors.primary + '20',
+  monthModalAnosScroll: { maxHeight: 44, marginBottom: spacing.sm },
+  monthModalAnosRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  monthModalItemText: {
-    fontSize: 16,
-    color: colors.textPrimary,
+  monthModalAnoPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.backgroundCardElevated || 'rgba(255,255,255,0.08)',
+    borderRadius: borderRadius.full,
   },
-  monthModalItemTextSelected: {
-    fontWeight: '600',
-    color: colors.primary,
+  monthModalAnoPillSelected: {
+    backgroundColor: colors.primary,
   },
+  monthModalAnoText: { fontSize: 15, color: colors.textSecondary },
+  monthModalAnoTextSelected: { color: colors.textPrimary, fontWeight: '600' },
+  monthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  monthGridItem: {
+    width: '23%',
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.backgroundCardElevated || 'rgba(255,255,255,0.08)',
+    borderRadius: borderRadius.md,
+  },
+  monthGridItemSelected: {
+    backgroundColor: colors.primary + '30',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  monthGridItemText: { fontSize: 14, color: colors.textPrimary },
+  monthGridItemTextSelected: { fontWeight: '600', color: colors.primary },
+  monthModalFechar: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+  },
+  monthModalFecharText: { fontSize: 15, fontWeight: '600', color: colors.primary },
   balanceBlock: {
     marginBottom: spacing.lg,
     alignItems: 'center',

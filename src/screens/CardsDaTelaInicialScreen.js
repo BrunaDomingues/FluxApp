@@ -15,7 +15,7 @@ import { useApp } from '../context/AppContext';
 const LISTA_CARDS = [
   { key: 'pendenciasAlertas', label: 'Pendências e alertas' },
   { key: 'contas', label: 'Contas' },
-  { key: 'cartoes', label: 'Cartões de crédito' },
+  { key: 'cartoes', label: 'Cartões' },
   { key: 'financiamentos', label: 'Financiamentos' },
   { key: 'despesasPorCategoria', label: 'Despesas por categoria' },
   { key: 'planejamentoMensal', label: 'Planejamento mensal' },

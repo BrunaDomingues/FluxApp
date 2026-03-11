@@ -113,7 +113,7 @@ export default function AddCardScreen({ navigation, route }) {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
+      style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.header}>
@@ -122,7 +122,10 @@ export default function AddCardScreen({ navigation, route }) {
         </TouchableOpacity>
         <Text style={styles.title}>{isEditMode ? 'Editar cartão' : 'Novo cartão'}</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.label}>Nome do cartão</Text>
         <TextInput
           style={styles.input}
