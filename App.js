@@ -31,6 +31,7 @@ import BalancoMensalScreen from './src/screens/BalancoMensalScreen';
 import ObjetivosScreen from './src/screens/ObjetivosScreen';
 import ObjetivoDetalhesScreen from './src/screens/ObjetivoDetalhesScreen';
 import AddObjetivoScreen from './src/screens/AddObjetivoScreen';
+import ExportImportScreen from './src/screens/ExportImportScreen';
 import { colors } from './src/constants/theme';
 
 const Stack = createStackNavigator();
@@ -87,6 +88,7 @@ export default function App() {
             <Stack.Screen name="Objetivos" component={ObjetivosScreen} />
             <Stack.Screen name="ObjetivoDetalhes" component={ObjetivoDetalhesScreen} />
             <Stack.Screen name="AddObjetivo" component={AddObjetivoScreen} />
+            <Stack.Screen name="ExportImport" component={ExportImportScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </AppProvider>
