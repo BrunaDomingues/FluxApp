@@ -29,7 +29,7 @@ function describeArc(cx, cy, r, startAngle, endAngle) {
 
 /**
  * data: array de { label, value, color } (apenas itens com value > 0)
- * Com 1 categoria: mostra o donut no mesmo tamanho, mas em arco (3/4 do círculo) em vez de 100% fechado.
+ * Com 1 categoria: donut 100% completo (círculo inteiro).
  */
 export default function DonutChart({ data = [] }) {
   const total = data.reduce((s, c) => s + c.value, 0);
@@ -46,17 +46,18 @@ export default function DonutChart({ data = [] }) {
   }
 
   let startAngle = 0;
-  const segments = data.length === 1
-    ? [{ ...data[0], pct: 100, d: describeArc(CX, CY, R, 0, 270) }]
-    : data.map((cat) => {
-      const pct = (cat.value / total) * 100;
-      
-        const angle = (pct / 100) * 360;
-        const endAngle = startAngle + angle;
-        const d = describeArc(CX, CY, R, startAngle, endAngle);
-        startAngle = endAngle;
-        return { ...cat, pct, d };
-      });
+  const segments = data.map((cat) => {
+    const pct = (cat.value / total) * 100;
+    const angle = (pct / 100) * 360;
+    const endAngle = startAngle + angle;
+    const d = describeArc(CX, CY, R, startAngle, endAngle);
+    startAngle = endAngle;
+    return { ...cat, pct, d };
+  });
+
+  if (data.length === 1) {
+    segments[0].d = describeArc(CX, CY, R, 0, 359.99);
+  }
 
   return (
     <View style={styles.wrapper}>
