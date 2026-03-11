@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -30,7 +30,7 @@ try {
   Clipboard = require('expo-clipboard');
 } catch (_) {}
 
-export default function CobrancaUsuarioScreen({ navigation }) {
+export default function CobrancaUsuarioScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const {
     usuarios,
@@ -47,7 +47,10 @@ export default function CobrancaUsuarioScreen({ navigation }) {
   const [modalRecebimentoVisible, setModalRecebimentoVisible] = useState(false);
   const [valorRecebimento, setValorRecebimento] = useState('');
   const [payerId, setPayerId] = useState(null);
+  const [debtorId, setDebtorId] = useState(null);
   const [dataPagamento, setDataPagamento] = useState('');
+  const [modalSelectPayerVisible, setModalSelectPayerVisible] = useState(false);
+  const [modalSelectDebtorVisible, setModalSelectDebtorVisible] = useState(false);
   const viewRef = useRef(null);
 
   const principalId = getPrincipalUserId();
@@ -160,7 +163,17 @@ export default function CobrancaUsuarioScreen({ navigation }) {
 
   const aReceberRestante = userId ? (getValorAReceberRestanteDeUsuario?.(userId) ?? 0) : 0;
   const usuariosComRestante = outrosUsuarios.filter((u) => (getValorAReceberRestanteDeUsuario?.(u.id) ?? 0) > 0);
-  const aReceberDoPayer = payerId ? (getValorAReceberRestanteDeUsuario?.(payerId) ?? 0) : 0;
+  const principalUser = (usuarios || []).find((u) => u.principal) || null;
+  const principalNome = principalUser?.nome || 'Principal';
+  const isPayerPrincipal = !!principalId && payerId === principalId;
+  const debtorEfetivoId = isPayerPrincipal ? (debtorId || userId || usuariosComRestante[0]?.id) : (payerId || userId);
+  const aReceberDoDebtorEfetivo = debtorEfetivoId ? (getValorAReceberRestanteDeUsuario?.(debtorEfetivoId) ?? 0) : 0;
+  const debtorEfetivoNome = debtorEfetivoId
+    ? (usuarios || []).find((u) => u.id === debtorEfetivoId)?.nome || 'Usuário'
+    : null;
+  const payerNome = payerId
+    ? (payerId === principalId ? `${principalNome} (principal)` : ((usuarios || []).find((u) => u.id === payerId)?.nome || 'Usuário'))
+    : null;
 
   const handleAbrirRegistrarRecebimento = () => {
     const quemTinhaRestante = userId && aReceberRestante > 0 ? userId : usuariosComRestante[0]?.id;
@@ -169,6 +182,7 @@ export default function CobrancaUsuarioScreen({ navigation }) {
       return;
     }
     setPayerId(quemTinhaRestante);
+    setDebtorId(quemTinhaRestante);
     const restante = getValorAReceberRestanteDeUsuario?.(quemTinhaRestante) ?? 0;
     setValorRecebimento(restante > 0 ? restante.toFixed(2).replace('.', ',') : '');
     const hoje = new Date();
@@ -177,35 +191,66 @@ export default function CobrancaUsuarioScreen({ navigation }) {
     setMsg(null);
   };
 
+  useEffect(() => {
+    if (route?.params?.openRecebimento === true) {
+      handleAbrirRegistrarRecebimento();
+      navigation.setParams?.({ openRecebimento: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route?.params?.openRecebimento]);
+
   const handleTrocarPayer = (id) => {
     setPayerId(id);
+    if (id === principalId) {
+      const alvo = debtorId || userId || usuariosComRestante[0]?.id;
+      if (alvo) {
+        const restante = getValorAReceberRestanteDeUsuario?.(alvo) ?? 0;
+        setValorRecebimento(restante > 0 ? restante.toFixed(2).replace('.', ',') : '');
+      }
+      return;
+    }
+    setDebtorId(id);
+    const restante = getValorAReceberRestanteDeUsuario?.(id) ?? 0;
+    setValorRecebimento(restante > 0 ? restante.toFixed(2).replace('.', ',') : '');
+  };
+
+  const handleTrocarDebtor = (id) => {
+    setDebtorId(id);
     const restante = getValorAReceberRestanteDeUsuario?.(id) ?? 0;
     setValorRecebimento(restante > 0 ? restante.toFixed(2).replace('.', ',') : '');
   };
 
   const handleConfirmarRecebimento = () => {
     const quemPagou = payerId || userId;
-    if (!quemPagou) {
-      setMsg('Selecione quem pagou.');
+    const devedor = debtorEfetivoId;
+    if (!quemPagou || !devedor) {
+      setMsg('Selecione quem pagou e de qual usuário dar baixa.');
       return;
     }
     const valorStr = (valorRecebimento || '').replace(',', '.').trim();
     const valor = parseFloat(valorStr);
-    const restantePayer = getValorAReceberRestanteDeUsuario?.(quemPagou) ?? 0;
+    const restanteDevedor = getValorAReceberRestanteDeUsuario?.(devedor) ?? 0;
     if (isNaN(valor) || valor <= 0) {
-      setMsg('Informe o valor pago (não zera a despesa, só registra a receita).');
+      setMsg('Informe o valor pago.');
       return;
     }
-    if (valor > restantePayer) {
-      setMsg(`O valor não pode ser maior que o restante a receber desse usuário (R$ ${restantePayer.toFixed(2).replace('.', ',')}).`);
+    if (valor > restanteDevedor) {
+      setMsg(`O valor não pode ser maior que o restante a receber desse usuário (R$ ${restanteDevedor.toFixed(2).replace('.', ',')}).`);
       return;
     }
-    addRecebimento(quemPagou, valor, undefined, dataPagamento?.trim() || undefined);
+    if (quemPagou === principalId) {
+      addRecebimento(devedor, valor, undefined, dataPagamento?.trim() || undefined, { semReceita: true });
+    } else {
+      addRecebimento(devedor, valor, undefined, dataPagamento?.trim() || undefined);
+    }
     setModalRecebimentoVisible(false);
     setValorRecebimento('');
     setDataPagamento('');
     setPayerId(null);
-    setMsg('Recebimento registrado! O valor foi adicionado às receitas (despesa permanece como está).');
+    setDebtorId(null);
+    setMsg(quemPagou === principalId
+      ? 'Baixa registrada (sem criar receita).'
+      : 'Recebimento registrado! O valor foi adicionado às receitas.');
   };
 
   const handleGerarImagem = async () => {
@@ -380,29 +425,28 @@ export default function CobrancaUsuarioScreen({ navigation }) {
           <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>Registrar recebimento</Text>
             <Text style={styles.modalSub}>
-              Quem pagou? O valor será adicionado às suas receitas. A despesa não é alterada.
+              Escolha quem pagou. Se for o principal, não cria receita — apenas dá baixa no alerta.
             </Text>
             <Text style={styles.modalLabel}>Quem pagou?</Text>
-            <View style={styles.modalChips}>
-              {outrosUsuarios.map((u) => {
-                const restante = getValorAReceberRestanteDeUsuario?.(u.id) ?? 0;
-                if (restante <= 0) return null;
-                return (
-                  <TouchableOpacity
-                    key={u.id}
-                    style={[styles.modalChip, payerId === u.id && styles.modalChipActive]}
-                    onPress={() => handleTrocarPayer(u.id)}
-                  >
-                    <Text style={[styles.modalChipText, payerId === u.id && styles.modalChipTextActive]}>
-                      {u.nome}
-                    </Text>
-                    <Text style={styles.modalChipRestante}>
-                      R$ {restante.toFixed(2).replace('.', ',')} a receber
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <TouchableOpacity style={styles.selectRow} onPress={() => setModalSelectPayerVisible(true)} activeOpacity={0.8}>
+              <Ionicons name="person-outline" size={18} color={colors.textMuted} />
+              <Text style={[styles.selectRowText, !payerNome && styles.selectRowPlaceholder]}>
+                {payerNome || 'Selecionar usuário'}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+            {isPayerPrincipal && (
+              <>
+                <Text style={styles.modalLabel}>Dar baixa para qual usuário?</Text>
+                <TouchableOpacity style={styles.selectRow} onPress={() => setModalSelectDebtorVisible(true)} activeOpacity={0.8}>
+                  <Ionicons name="people-outline" size={18} color={colors.textMuted} />
+                  <Text style={[styles.selectRowText, !debtorEfetivoNome && styles.selectRowPlaceholder]}>
+                    {debtorEfetivoNome || 'Selecionar usuário'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
+                </TouchableOpacity>
+              </>
+            )}
             {payerId && (
               <>
                 <Text style={styles.modalLabel}>Data do pagamento</Text>
@@ -419,7 +463,7 @@ export default function CobrancaUsuarioScreen({ navigation }) {
                   style={styles.modalInput}
                   value={valorRecebimento}
                   onChangeText={setValorRecebimento}
-                  placeholder={aReceberDoPayer > 0 ? `Ex: ${aReceberDoPayer.toFixed(2).replace('.', ',')} (valor total)` : '0,00'}
+                  placeholder={aReceberDoDebtorEfetivo > 0 ? `Ex: ${aReceberDoDebtorEfetivo.toFixed(2).replace('.', ',')} (valor total)` : '0,00'}
                   placeholderTextColor={colors.textMuted}
                   keyboardType="decimal-pad"
                 />
@@ -433,6 +477,72 @@ export default function CobrancaUsuarioScreen({ navigation }) {
                 <Text style={styles.modalBtnConfirmText}>Confirmar</Text>
               </TouchableOpacity>
             </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={modalSelectPayerVisible} transparent animationType="fade" onRequestClose={() => setModalSelectPayerVisible(false)}>
+        <Pressable style={styles.selectModalBackdrop} onPress={() => setModalSelectPayerVisible(false)}>
+          <Pressable style={styles.selectModalBox} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.selectModalTitle}>Quem pagou?</Text>
+            {!!principalId && (
+              <TouchableOpacity
+                style={styles.selectModalItem}
+                onPress={() => {
+                  handleTrocarPayer(principalId);
+                  setModalSelectPayerVisible(false);
+                }}
+              >
+                <Text style={styles.selectModalItemText}>{principalNome} (principal)</Text>
+                <Text style={styles.selectModalItemSub}>Sem receita</Text>
+              </TouchableOpacity>
+            )}
+            {usuariosComRestante.map((u) => {
+              const restante = getValorAReceberRestanteDeUsuario?.(u.id) ?? 0;
+              return (
+                <TouchableOpacity
+                  key={u.id}
+                  style={styles.selectModalItem}
+                  onPress={() => {
+                    handleTrocarPayer(u.id);
+                    setModalSelectPayerVisible(false);
+                  }}
+                >
+                  <Text style={styles.selectModalItemText}>{u.nome}</Text>
+                  <Text style={styles.selectModalItemSub}>R$ {restante.toFixed(2).replace('.', ',')} a receber</Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity style={styles.selectModalClose} onPress={() => setModalSelectPayerVisible(false)}>
+              <Text style={styles.selectModalCloseText}>Fechar</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={modalSelectDebtorVisible} transparent animationType="fade" onRequestClose={() => setModalSelectDebtorVisible(false)}>
+        <Pressable style={styles.selectModalBackdrop} onPress={() => setModalSelectDebtorVisible(false)}>
+          <Pressable style={styles.selectModalBox} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.selectModalTitle}>Dar baixa para qual usuário?</Text>
+            {usuariosComRestante.map((u) => {
+              const restante = getValorAReceberRestanteDeUsuario?.(u.id) ?? 0;
+              return (
+                <TouchableOpacity
+                  key={u.id}
+                  style={styles.selectModalItem}
+                  onPress={() => {
+                    handleTrocarDebtor(u.id);
+                    setModalSelectDebtorVisible(false);
+                  }}
+                >
+                  <Text style={styles.selectModalItemText}>{u.nome}</Text>
+                  <Text style={styles.selectModalItemSub}>R$ {restante.toFixed(2).replace('.', ',')} a receber</Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity style={styles.selectModalClose} onPress={() => setModalSelectDebtorVisible(false)}>
+              <Text style={styles.selectModalCloseText}>Fechar</Text>
+            </TouchableOpacity>
           </Pressable>
         </Pressable>
       </Modal>
@@ -585,4 +695,44 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
   modalBtnConfirmText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  selectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  selectRowText: { flex: 1, fontSize: 16, color: colors.textPrimary },
+  selectRowPlaceholder: { color: colors.textMuted },
+  selectModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  selectModalBox: {
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 360,
+    maxHeight: 440,
+  },
+  selectModalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.md },
+  selectModalItem: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginBottom: spacing.sm,
+  },
+  selectModalItemText: { fontSize: 16, color: colors.textPrimary, fontWeight: '600' },
+  selectModalItemSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  selectModalClose: { marginTop: spacing.sm, padding: spacing.md, alignItems: 'center' },
+  selectModalCloseText: { fontSize: 16, color: colors.textMuted, fontWeight: '600' },
 });

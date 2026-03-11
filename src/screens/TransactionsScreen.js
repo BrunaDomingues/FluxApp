@@ -37,7 +37,6 @@ export default function TransactionsScreen({ navigation, route }) {
     contas,
     usuarios,
     getPrincipalUserId,
-    getValorPartePrincipal,
     getDespesasComParteDoUsuario,
   } = useApp();
   const contaIdFromParams = route.params?.contaId ?? null;
@@ -49,7 +48,6 @@ export default function TransactionsScreen({ navigation, route }) {
   const [modalConta, setModalConta] = useState(false);
   const [modalUsuario, setModalUsuario] = useState(false);
 
-  const principalId = getPrincipalUserId();
   const outrosUsuarios = (usuarios || []).filter((u) => !u.principal);
 
   useFocusEffect(
@@ -85,9 +83,6 @@ export default function TransactionsScreen({ navigation, route }) {
 
   const valorExibir = (t) => {
     if (!userId) {
-      if ((t.tipo === 'saida' || t.tipo === 'despesa_cartao') && t.divisao && principalId) {
-        return getValorPartePrincipal(t);
-      }
       return Math.abs(t.valor || 0);
     }
     const despesas = getDespesasComParteDoUsuario(userId);

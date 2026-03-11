@@ -140,14 +140,24 @@ export default function UsuariosScreen({ navigation }) {
           <Text style={styles.addBtnText}>Adicionar usuário</Text>
         </TouchableOpacity>
         {(usuarios || []).length > 0 && (
-          <TouchableOpacity
-            style={styles.cobrancaBtn}
-            onPress={() => navigation.navigate('CobrancaUsuario')}
-          >
-            <Ionicons name="image-outline" size={24} color={colors.secondary} />
-            <Text style={styles.cobrancaBtnText}>Gerar imagem de cobrança</Text>
-            <Text style={styles.cobrancaBtnSub}>Enviar resumo para alguém cobrar a parte dele</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={styles.cobrancaBtn}
+              onPress={() => navigation.navigate('CobrancaUsuario')}
+            >
+              <Ionicons name="image-outline" size={24} color={colors.secondary} />
+              <Text style={styles.cobrancaBtnText}>Gerar imagem de cobrança</Text>
+              <Text style={styles.cobrancaBtnSub}>Enviar resumo para alguém cobrar a parte dele</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.recebimentoBtn}
+              onPress={() => navigation.navigate('CobrancaUsuario', { openRecebimento: true })}
+            >
+              <Ionicons name="cash-outline" size={24} color={colors.positive} />
+              <Text style={[styles.cobrancaBtnText, { color: colors.positive }]}>Registrar recebimento</Text>
+              <Text style={styles.cobrancaBtnSub}>Dar baixa quando alguém pagar (gera receita)</Text>
+            </TouchableOpacity>
+          </>
         )}
       </ScrollView>
 
@@ -257,6 +267,18 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
+  },
+  recebimentoBtn: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    marginTop: spacing.sm,
   },
   cobrancaBtnText: { fontSize: 16, fontWeight: '600', color: colors.secondary, flex: 1 },
   cobrancaBtnSub: { fontSize: 12, color: colors.textMuted, width: '100%', marginLeft: 32 },

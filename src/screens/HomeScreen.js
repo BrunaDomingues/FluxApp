@@ -126,6 +126,24 @@ export default function HomeScreen({ navigation }) {
           <React.Fragment key={key}>
             <Text style={styles.sectionTitle}>Pendências e alertas</Text>
             <View style={styles.card}>
+              {aReceberTerceiros > 0 && (
+                <View style={styles.receberRow}>
+                  <View style={styles.receberInfo}>
+                    <Text style={styles.receberTitle}>Recebimentos pendentes</Text>
+                    <Text style={styles.receberSub}>
+                      Você tem R$ {aReceberTerceiros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a receber
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.receberBtn}
+                    onPress={() => navigation.navigate('CobrancaUsuario', { openRecebimento: true })}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="cash-outline" size={18} color="#fff" />
+                    <Text style={styles.receberBtnText}>Registrar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
               {(() => {
                 const proximasParcelas = getProximasParcelasCartao();
                 const hoje = new Date();
@@ -143,6 +161,7 @@ export default function HomeScreen({ navigation }) {
                   return { ...p, dataVen, diffDias, pertoVencimento, vencida, cartaoNome: cartao?.nome || 'Cartão' };
                 });
                 if (parcelasComAlerta.length === 0) {
+                  if (aReceberTerceiros > 0) return null;
                   return <Text style={styles.placeholderCardText}>Nenhuma pendência no momento.</Text>;
                 }
                 const emAlerta = parcelasComAlerta.filter((p) => p.vencida || p.pertoVencimento);
@@ -1241,6 +1260,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
   },
+  receberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingBottom: spacing.md,
+    marginBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  receberInfo: { flex: 1 },
+  receberTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  receberSub: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  receberBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.positive,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 999,
+  },
+  receberBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
   objetivosSub: {
     fontSize: 13,
     color: colors.textMuted,

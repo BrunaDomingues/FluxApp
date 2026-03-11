@@ -450,10 +450,9 @@ export function AppProvider({ children }) {
     });
   }, []);
 
-  // Gasto por categoria no mês (apenas despesas). Em despesas divididas, soma só a parte do principal.
+  // Gasto por categoria no mês (apenas despesas).
   // Para cartão de crédito: considera o mês de VENCIMENTO da parcela (o que será pago no mês), não o mês da compra
   const getGastoPorCategoriaNoMes = useCallback((mes, ano) => {
-    const principalId = usuarios.find((u) => u.principal === true)?.id;
     const despesas = transacoes.filter((t) => {
       if (t.tipo === 'saida') return t.mes === mes && t.ano === ano;
       if (t.tipo === 'despesa_cartao') {
@@ -467,20 +466,11 @@ export function AppProvider({ children }) {
     const porCat = {};
     despesas.forEach((t) => {
       const id = t.categoriaId || 'outros';
-      let valor = Math.abs(t.valor || 0);
-      const d = t.divisao;
-      if (d?.partes?.length && principalId) {
-        const parte = d.partes.find((p) => p.userId === principalId);
-        if (parte) {
-          let pct = parte.porcentagem;
-          if (pct == null && d.tipo === 'igual') pct = 100 / d.partes.length;
-          valor = Math.round(valor * ((pct || 0) / 100) * 100) / 100;
-        }
-      }
+      const valor = Math.abs(t.valor || 0);
       porCat[id] = (porCat[id] || 0) + valor;
     });
     return porCat;
-  }, [transacoes, usuarios]);
+  }, [transacoes]);
 
   const getReceitasNoMes = useCallback((mes, ano) => {
     return transacoes
@@ -669,8 +659,11 @@ export function AppProvider({ children }) {
     return Math.round(total * 100) / 100;
   }, [usuarios, getPrincipalUserId, getValorAReceberRestanteDeUsuario]);
 
-  /** Registra recebimento de valor do usuário userId: adiciona receita e reduz "a receber". dataPagamento opcional "dd/mm/yyyy" — se vazio usa hoje. */
-  const addRecebimento = useCallback((userId, valor, contaId, dataPagamento) => {
+  /** Registra recebimento de valor do usuário userId: reduz "a receber" e (por padrão) adiciona receita.
+   * dataPagamento opcional "dd/mm/yyyy" — se vazio usa hoje.
+   * opts.semReceita=true: não cria transação de entrada (apenas dá baixa).
+   */
+  const addRecebimento = useCallback((userId, valor, contaId, dataPagamento, opts) => {
     const id = Date.now().toString();
     const user = usuarios.find((u) => u.id === userId);
     const nome = user?.nome || 'Usuário';
@@ -694,18 +687,21 @@ export function AppProvider({ children }) {
     }
     const valorNum = Math.round(Math.abs(Number(valor) || 0) * 100) / 100;
     if (valorNum <= 0) return;
+    const semReceita = opts?.semReceita === true;
     const conta = contaId || contas.filter((c) => !c.arquivada)[0]?.id;
-    addTransacao({
-      tipo: 'entrada',
-      valor: valorNum,
-      descricao: `Recebimento de ${nome}`,
-      contaId: conta || null,
-      data,
-      mes,
-      ano,
-      recebimentoDeUserId: userId,
-    });
-    setRecebimentosDeUsuarios((prev) => [...prev, { id, userId, valor: valorNum, data, mes, ano }]);
+    if (!semReceita) {
+      addTransacao({
+        tipo: 'entrada',
+        valor: valorNum,
+        descricao: `Recebimento de ${nome}`,
+        contaId: conta || null,
+        data,
+        mes,
+        ano,
+        recebimentoDeUserId: userId,
+      });
+    }
+    setRecebimentosDeUsuarios((prev) => [...prev, { id, userId, valor: valorNum, data, mes, ano, semReceita: semReceita || undefined }]);
   }, [usuarios, contas, addTransacao]);
 
   /** Lista de despesas em que o usuário userId tem parte (para cobrança). Cada item: { transacao, valorParte, porcentagem } */
@@ -771,7 +767,7 @@ export function AppProvider({ children }) {
   const totalReceitas = transacoes.filter((x) => x.tipo === 'entrada').reduce((s, x) => s + (x.valor || 0), 0);
   const totalDespesas = transacoes
     .filter((x) => x.tipo === 'saida' || x.tipo === 'despesa_cartao')
-    .reduce((s, x) => s + getValorPartePrincipal(x), 0);
+    .reduce((s, x) => s + Math.abs(x.valor || 0), 0);
 
   const value = {
     contas,
