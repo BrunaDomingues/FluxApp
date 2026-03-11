@@ -25,12 +25,15 @@ export default function PlanningScreen({ navigation }) {
   const [mes, setMes] = useState(now.getMonth());
   const [ano, setAno] = useState(now.getFullYear());
 
-  const { getOrcamento, getGastoPorCategoriaNoMes, categorias, setOrcamentoMensal, removeOrcamentoMensal } = useApp();
+  const { getOrcamento, getGastoPorCategoriaNoMes, getPrevisaoGastosCartaoPorMes, categorias, setOrcamentoMensal, removeOrcamentoMensal } = useApp();
   const orc = getOrcamento(mes, ano);
   const gastoPorCat = getGastoPorCategoriaNoMes(mes, ano);
+  const previsaoParcelasCartao = getPrevisaoGastosCartaoPorMes(mes, ano);
   const totalOrcamento = orc.total || 0;
   const totalGasto = useMemo(() => Object.values(gastoPorCat).reduce((s, v) => s + v, 0), [gastoPorCat]);
+  const totalPrevistoMes = totalGasto + previsaoParcelasCartao;
   const restamTotal = Math.max(0, totalOrcamento - totalGasto);
+  const restamAposParcelas = Math.max(0, totalOrcamento - totalPrevistoMes);
   const diasNoMes = new Date(ano, mes + 1, 0).getDate();
   const diaHoje = now.getDate();
   const diasRestantes = Math.max(1, diasNoMes - diaHoje + 1);
@@ -138,6 +141,14 @@ export default function PlanningScreen({ navigation }) {
           </View>
           <Text style={styles.restamLabel}>Restam</Text>
           <Text style={styles.restamValue}>R$ {restamTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
+          {previsaoParcelasCartao > 0 && (
+            <>
+              <Text style={styles.previsaoLabel}>Previsão parcelas cartão neste mês</Text>
+              <Text style={styles.previsaoValue}>R$ {previsaoParcelasCartao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
+              <Text style={styles.restamAposLabel}>Restam após parcelas</Text>
+              <Text style={styles.restamAposValue}>R$ {restamAposParcelas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
+            </>
+          )}
           <Text style={styles.diariaLabel}>Disponível por dia</Text>
           <Text style={styles.diariaValue}>R$ {disponivelPorDia.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
           <View style={styles.progressWrap}>
@@ -291,6 +302,10 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   restamLabel: { fontSize: 12, color: colors.textMuted, marginBottom: 2 },
   restamValue: { fontSize: 24, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.sm },
+  previsaoLabel: { fontSize: 12, color: colors.textMuted, marginBottom: 2 },
+  previsaoValue: { fontSize: 16, color: colors.secondary, marginBottom: spacing.xs },
+  restamAposLabel: { fontSize: 12, color: colors.textMuted, marginBottom: 2 },
+  restamAposValue: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: spacing.sm },
   diariaLabel: { fontSize: 12, color: colors.textMuted, marginBottom: 2 },
   diariaValue: { fontSize: 16, fontWeight: '600', color: colors.textSecondary, marginBottom: spacing.md },
   progressWrap: { marginTop: spacing.xs },

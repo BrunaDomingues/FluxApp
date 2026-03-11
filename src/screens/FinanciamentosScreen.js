@@ -48,8 +48,11 @@ export default function FinanciamentosScreen({ navigation }) {
         ) : (
           <>
             {financiamentos.map((f) => {
-              const pagas = (f.parcelas || []).filter((p) => p.pago).length;
-              const economias = (f.parcelas || []).reduce((s, p) => {
+              const parcelas = f.parcelas || [];
+              const pagas = parcelas.filter((p) => p.pago).length;
+              const totalFinanciamento = (f.totalParcelas || 0) * (f.valorPadrao || 0);
+              const totalPago = parcelas.reduce((s, p) => s + (p.pago ? (p.valorPago ?? p.valorPadrao ?? 0) : 0), 0);
+              const economias = parcelas.reduce((s, p) => {
                 if (!p.pago || p.valorPago == null) return s;
                 const economia = (p.valorPadrao || 0) - p.valorPago;
                 return s + (economia > 0 ? economia : 0);
@@ -82,6 +85,18 @@ export default function FinanciamentosScreen({ navigation }) {
                     <Text style={styles.cardLabel}>Valor padrão</Text>
                     <Text style={styles.cardValue}>{formatBRL(String(Math.round((f.valorPadrao || 0) * 100)))}/parcela</Text>
                   </View>
+                  {totalFinanciamento > 0 && (
+                    <View style={styles.cardRow}>
+                      <Text style={styles.cardLabel}>Total do financiamento</Text>
+                      <Text style={styles.cardValue}>{formatBRL(String(Math.round(totalFinanciamento * 100)))}</Text>
+                    </View>
+                  )}
+                  {(pagas > 0 || totalPago > 0) && (
+                    <View style={styles.cardRow}>
+                      <Text style={styles.cardLabel}>Total pago</Text>
+                      <Text style={styles.cardValue}>{formatBRL(String(Math.round(totalPago * 100)))}</Text>
+                    </View>
+                  )}
                   {economias > 0 && (
                     <View style={[styles.cardRow, styles.economiaRow]}>
                       <Text style={styles.economiaLabel}>Economia</Text>

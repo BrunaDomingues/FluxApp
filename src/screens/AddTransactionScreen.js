@@ -17,6 +17,16 @@ import { useApp } from '../context/AppContext';
 import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/currency';
 import { ICONE_PADRAO } from '../constants/categorias';
 
+const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+function buildAnos() {
+  const anoAtual = new Date().getFullYear();
+  const anos = [];
+  for (let a = anoAtual - 5; a <= anoAtual + 10; a++) anos.push(a);
+  return anos;
+}
+const ANOS = buildAnos();
+
 export default function AddTransactionScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { categorias, contas, cartoes, addTransacao, updateTransacao, transacoes } = useApp();
@@ -35,7 +45,12 @@ export default function AddTransactionScreen({ navigation, route }) {
   const [contaDestinoId, setContaDestinoId] = useState(contas[1]?.id || null);
   const [cartaoId, setCartaoId] = useState(route?.params?.cartaoId || cartoes[0]?.id || null);
   const [descricao, setDescricao] = useState('');
+  const [totalParcelas, setTotalParcelas] = useState('1');
+  const [mesPrimeiraParcela, setMesPrimeiraParcela] = useState(new Date().getMonth());
+  const [anoPrimeiraParcela, setAnoPrimeiraParcela] = useState(new Date().getFullYear());
   const [modalCategoriaVisible, setModalCategoriaVisible] = useState(false);
+  const [modalMesVisible, setModalMesVisible] = useState(false);
+  const [modalAnoVisible, setModalAnoVisible] = useState(false);
 
   const contasVisiveis = contas.filter((c) => !c.arquivada);
   const categoriasFiltradas = isTransferencia ? [] : categorias.filter((c) => c.tipo === tipo);
@@ -63,6 +78,11 @@ export default function AddTransactionScreen({ navigation, route }) {
     setCategoriaId(editar.categoriaId || null);
     setContaId(editar.contaId || contas[0]?.id || null);
     setCartaoId(editar.cartaoId || cartoes[0]?.id || null);
+    if (editar.parcelaNumero != null) {
+      setTotalParcelas(String(editar.totalParcelas || 1));
+      setMesPrimeiraParcela(editar.mesVencimento ?? new Date().getMonth());
+      setAnoPrimeiraParcela(editar.anoVencimento ?? new Date().getFullYear());
+    }
     if (editar.transferenciaId) {
       const outro = transacoes.find((x) => x.transferenciaId === editar.transferenciaId && x.id !== editar.id);
       if (editar.descricao === 'Transferência enviada') {
@@ -132,14 +152,22 @@ export default function AddTransactionScreen({ navigation, route }) {
       return;
     }
     const cat = categorias.find((c) => c.id === categoriaId);
+    const numParcelas = Math.max(1, parseInt(totalParcelas, 10) || 1);
+    const isParcelado = isCartao && numParcelas > 1;
+    const valorEnvio = isParcelado ? Math.abs(valorNum) / numParcelas : (tipo === 'entrada' ? valorNum : -Math.abs(valorNum));
     addTransacao({
       tipo: isCartao ? 'despesa_cartao' : tipo === 'entrada' ? 'entrada' : 'saida',
-      valor: tipo === 'entrada' ? valorNum : -valorNum,
+      valor: tipo === 'entrada' ? valorNum : (isParcelado ? -valorEnvio : -Math.abs(valorNum)),
       categoriaId,
       categoriaNome: cat?.nome,
       contaId: isCartao ? undefined : contaId,
       cartaoId: isCartao ? cartaoId : undefined,
       descricao: descricao.trim() || undefined,
+      ...(isParcelado && {
+        totalParcelas: numParcelas,
+        mesPrimeiraParcela,
+        anoPrimeiraParcela,
+      }),
     });
     navigation.goBack();
   };
@@ -232,6 +260,100 @@ export default function AddTransactionScreen({ navigation, route }) {
                 </TouchableOpacity>
               ))}
             </View>
+            {(cartoes.find((c) => c.id === cartaoId)?.tipo || 'credito') === 'credito' && !isEditMode && (
+              <>
+                <Text style={styles.label}>Nº de parcelas (1 = à vista)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="1"
+                  placeholderTextColor={colors.textMuted}
+                  value={totalParcelas}
+                  onChangeText={setTotalParcelas}
+                  keyboardType="number-pad"
+                />
+                {(Math.max(1, parseInt(totalParcelas, 10) || 1) > 1) && (
+                  <>
+                    <Text style={styles.label}>1ª parcela vence em (mês/ano)</Text>
+                    <View style={styles.row}>
+                      <View style={styles.flex1}>
+                        <Text style={styles.labelSmall}>Mês</Text>
+                        <TouchableOpacity
+                          style={styles.selectCategoria}
+                          onPress={() => setModalMesVisible(true)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                          <Text style={styles.selectCategoriaText}>{MESES[mesPrimeiraParcela]}</Text>
+                          <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                      <View style={styles.flex1}>
+                        <Text style={styles.labelSmall}>Ano</Text>
+                        <TouchableOpacity
+                          style={styles.selectCategoria}
+                          onPress={() => setModalAnoVisible(true)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                          <Text style={styles.selectCategoriaText}>{anoPrimeiraParcela}</Text>
+                          <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    <Modal visible={modalMesVisible} transparent animationType="fade">
+                      <Pressable style={styles.modalBackdrop} onPress={() => setModalMesVisible(false)}>
+                        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+                          <Text style={styles.modalTitle}>Selecionar mês</Text>
+                          <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent} keyboardShouldPersistTaps="handled">
+                            {MESES.map((nome, idx) => (
+                              <TouchableOpacity
+                                key={idx}
+                                style={[styles.modalOption, mesPrimeiraParcela === idx && styles.modalOptionActive]}
+                                onPress={() => {
+                                  setMesPrimeiraParcela(idx);
+                                  setModalMesVisible(false);
+                                }}
+                              >
+                                <Text style={[styles.modalOptionText, mesPrimeiraParcela === idx && styles.modalOptionTextActive]}>{nome}</Text>
+                                {mesPrimeiraParcela === idx ? <Ionicons name="checkmark-circle" size={22} color={colors.primary} /> : null}
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                          <TouchableOpacity style={styles.modalCancel} onPress={() => setModalMesVisible(false)}>
+                            <Text style={styles.modalCancelText}>Fechar</Text>
+                          </TouchableOpacity>
+                        </Pressable>
+                      </Pressable>
+                    </Modal>
+                    <Modal visible={modalAnoVisible} transparent animationType="fade">
+                      <Pressable style={styles.modalBackdrop} onPress={() => setModalAnoVisible(false)}>
+                        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+                          <Text style={styles.modalTitle}>Selecionar ano</Text>
+                          <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent} keyboardShouldPersistTaps="handled">
+                            {ANOS.map((ano) => (
+                              <TouchableOpacity
+                                key={ano}
+                                style={[styles.modalOption, anoPrimeiraParcela === ano && styles.modalOptionActive]}
+                                onPress={() => {
+                                  setAnoPrimeiraParcela(ano);
+                                  setModalAnoVisible(false);
+                                }}
+                              >
+                                <Text style={[styles.modalOptionText, anoPrimeiraParcela === ano && styles.modalOptionTextActive]}>{ano}</Text>
+                                {anoPrimeiraParcela === ano ? <Ionicons name="checkmark-circle" size={22} color={colors.primary} /> : null}
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                          <TouchableOpacity style={styles.modalCancel} onPress={() => setModalAnoVisible(false)}>
+                            <Text style={styles.modalCancelText}>Fechar</Text>
+                          </TouchableOpacity>
+                        </Pressable>
+                      </Pressable>
+                    </Modal>
+                  </>
+                )}
+              </>
+            )}
           </>
         )}
         {!isTransferencia && (
@@ -329,6 +451,9 @@ const styles = StyleSheet.create({
   optionChipActive: { backgroundColor: colors.primary },
   optionChipText: { fontSize: 14, color: colors.textSecondary },
   optionChipTextActive: { color: colors.textPrimary, fontWeight: '600' },
+  row: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
+  flex1: { flex: 1 },
+  labelSmall: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.xs },
   selectCategoria: {
     flexDirection: 'row',
     alignItems: 'center',

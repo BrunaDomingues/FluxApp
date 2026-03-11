@@ -113,6 +113,7 @@ export function AppProvider({ children }) {
       id: Date.now().toString(),
       limite: cartao.limite ?? 0,
       bandeira: cartao.bandeira ?? 'Outro',
+      tipo: cartao.tipo === 'debito' ? 'debito' : 'credito',
       ativo: cartao.ativo !== false,
       diaFechamento: cartao.diaFechamento ?? null,
       diaVencimento: cartao.diaVencimento ?? null,
@@ -137,6 +138,35 @@ export function AppProvider({ children }) {
 
   const addTransacao = useCallback((t) => {
     const now = new Date();
+    if (t.tipo === 'despesa_cartao' && t.totalParcelas > 1 && t.mesPrimeiraParcela != null && t.anoPrimeiraParcela != null) {
+      const parcelaGroupId = Date.now().toString() + '_' + Math.random().toString(36).slice(2);
+      const valorParcela = Math.abs(t.valor || 0);
+      const descBase = (t.descricao || '').trim() || 'Parcela';
+      const novas = [];
+      for (let i = 1; i <= t.totalParcelas; i++) {
+        let mes = t.mesPrimeiraParcela + (i - 1);
+        let ano = t.anoPrimeiraParcela;
+        while (mes > 11) { mes -= 12; ano += 1; }
+        while (mes < 0) { mes += 12; ano -= 1; }
+        novas.push({
+          ...t,
+          id: parcelaGroupId + '_' + i,
+          valor: -valorParcela,
+          descricao: `${descBase} ${i}/${t.totalParcelas}`,
+          data: now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          mes: now.getMonth(),
+          ano: now.getFullYear(),
+          parcelaNumero: i,
+          totalParcelas: t.totalParcelas,
+          parcelaGroupId,
+          mesVencimento: mes,
+          anoVencimento: ano,
+          pago: false,
+        });
+      }
+      setTransacoes((prev) => [...prev, ...novas]);
+      return;
+    }
     const nova = {
       ...t,
       id: Date.now().toString(),
@@ -145,6 +175,7 @@ export function AppProvider({ children }) {
       ano: now.getFullYear(),
     };
     setTransacoes((prev) => [...prev, nova]);
+    if (t.tipo === 'despesa_cartao') return;
     // Atualizar saldo da(s) conta(s)
     setContas((prev) => {
       const next = prev.map((c) => {
@@ -303,6 +334,25 @@ export function AppProvider({ children }) {
     setFinanciamentosState((prev) => prev.filter((f) => f.id !== id));
   }, []);
 
+  const getProximasParcelasCartao = useCallback(() => {
+    return transacoes
+      .filter((x) => x.tipo === 'despesa_cartao' && x.parcelaNumero != null && x.pago !== true)
+      .sort((a, b) => {
+        const anoA = a.anoVencimento ?? a.ano;
+        const anoB = b.anoVencimento ?? b.ano;
+        if (anoA !== anoB) return anoA - anoB;
+        const mesA = a.mesVencimento ?? a.mes;
+        const mesB = b.mesVencimento ?? b.mes;
+        return mesA - mesB;
+      });
+  }, [transacoes]);
+
+  const getPrevisaoGastosCartaoPorMes = useCallback((mes, ano) => {
+    return transacoes
+      .filter((x) => x.tipo === 'despesa_cartao' && x.mesVencimento === mes && x.anoVencimento === ano && x.pago !== true)
+      .reduce((s, x) => s + Math.abs(x.valor || 0), 0);
+  }, [transacoes]);
+
   const saldoContas = contas
     .filter((c) => c.incluirNaSomaTelaInicial !== false)
     .reduce((s, c) => s + (c.saldo || 0), 0);
@@ -347,6 +397,8 @@ export function AppProvider({ children }) {
     updateFinanciamento,
     updateParcelaFinanciamento,
     removeFinanciamento,
+    getProximasParcelasCartao,
+    getPrevisaoGastosCartaoPorMes,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

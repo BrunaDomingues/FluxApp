@@ -37,7 +37,7 @@ const OPCOES_MESES = buildOpcoesMeses();
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { contas, cartoes, saldoContas, categorias, getGastoPorCategoriaNoMes, getReceitasNoMes, cardsDaTelaInicial, cardsOrdem, financiamentos } = useApp();
+  const { contas, cartoes, saldoContas, categorias, getGastoPorCategoriaNoMes, getReceitasNoMes, cardsDaTelaInicial, cardsOrdem, financiamentos, getProximasParcelasCartao, updateTransacao } = useApp();
   const cartoesAtivos = cartoes.filter((c) => c.ativo !== false);
   const cards = cardsDaTelaInicial || {};
   const ordemBase = Array.isArray(cardsOrdem) && cardsOrdem.length > 0 ? cardsOrdem : [
@@ -87,7 +87,74 @@ export default function HomeScreen({ navigation }) {
           <React.Fragment key={key}>
             <Text style={styles.sectionTitle}>Pendências e alertas</Text>
             <View style={styles.card}>
-              <Text style={styles.placeholderCardText}>Nenhuma pendência no momento.</Text>
+              {(() => {
+                const proximasParcelas = getProximasParcelasCartao();
+                const hoje = new Date();
+                hoje.setHours(0, 0, 0, 0);
+                const diasAlerta = 7;
+                const formatBRLShort = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+                const parcelasComAlerta = proximasParcelas.map((p) => {
+                  const cartao = cartoes.find((c) => c.id === p.cartaoId);
+                  const diaVen = cartao?.diaVencimento ?? 10;
+                  const dataVen = new Date(p.anoVencimento, p.mesVencimento, Math.min(diaVen, 28));
+                  dataVen.setHours(0, 0, 0, 0);
+                  const diffDias = Math.ceil((dataVen - hoje) / (1000 * 60 * 60 * 24));
+                  const pertoVencimento = diffDias >= 0 && diffDias <= diasAlerta;
+                  const vencida = diffDias < 0;
+                  return { ...p, dataVen, diffDias, pertoVencimento, vencida, cartaoNome: cartao?.nome || 'Cartão' };
+                });
+                if (parcelasComAlerta.length === 0) {
+                  return <Text style={styles.placeholderCardText}>Nenhuma pendência no momento.</Text>;
+                }
+                const emAlerta = parcelasComAlerta.filter((p) => p.vencida || p.pertoVencimento);
+                const outras = parcelasComAlerta.filter((p) => !p.vencida && !p.pertoVencimento);
+                return (
+                  <>
+                    {emAlerta.length > 0 && (
+                      <>
+                        {emAlerta.map((p) => (
+                          <View key={p.id} style={[styles.parcelaRow, p.vencida && styles.parcelaRowVencida]}>
+                            <View style={styles.parcelaInfo}>
+                              <Text style={styles.parcelaDesc}>{p.descricao}</Text>
+                              <Text style={styles.parcelaCartao}>{p.cartaoNome}</Text>
+                              <Text style={[styles.parcelaVenc, p.vencida && styles.parcelaVencVencida]}>
+                                {p.vencida ? `Venceu em ${formatBRLShort(p.dataVen)}` : p.diffDias === 0 ? 'Vence hoje' : `Vence em ${formatBRLShort(p.dataVen)} (${p.diffDias} dias)`}
+                              </Text>
+                            </View>
+                            <Text style={styles.parcelaValor}>R$ {Math.abs(p.valor || 0).toFixed(2).replace('.', ',')}</Text>
+                            <TouchableOpacity
+                              style={styles.parcelaPagoBtn}
+                              onPress={() => updateTransacao(p.id, { pago: true })}
+                            >
+                              <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </>
+                    )}
+                    {outras.length > 0 && (
+                      <>
+                        <Text style={[styles.labelSmall, { marginTop: emAlerta.length > 0 ? 8 : 0 }]}>Próximas parcelas a pagar</Text>
+                        {outras.slice(0, 10).map((p) => (
+                          <View key={p.id} style={styles.parcelaRow}>
+                            <View style={styles.parcelaInfo}>
+                              <Text style={styles.parcelaDesc}>{p.descricao}</Text>
+                              <Text style={styles.parcelaCartao}>{p.cartaoNome} • Venc. {formatBRLShort(p.dataVen)}</Text>
+                            </View>
+                            <Text style={styles.parcelaValor}>R$ {Math.abs(p.valor || 0).toFixed(2).replace('.', ',')}</Text>
+                            <TouchableOpacity
+                              style={styles.parcelaPagoBtn}
+                              onPress={() => updateTransacao(p.id, { pago: true })}
+                            >
+                              <Ionicons name="checkmark-circle-outline" size={24} color={colors.textMuted} />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </>
+                    )}
+                  </>
+                );
+              })()}
             </View>
           </React.Fragment>
         );
@@ -138,14 +205,14 @@ export default function HomeScreen({ navigation }) {
       case 'cartoes':
         return (
           <React.Fragment key={key}>
-            <Text style={styles.sectionTitle}>Cartões de crédito</Text>
+            <Text style={styles.sectionTitle}>Cartões</Text>
             <View style={styles.card}>
               {cartoesAtivos.length === 0 ? (
                 <>
                   <View style={styles.emptyCartaoIcon}>
                     <Ionicons name="card-outline" size={40} color={colors.textMuted} />
                   </View>
-                  <Text style={styles.emptyCartaoText}>Ops! Você ainda não tem nenhum cartão de crédito cadastrado.</Text>
+                  <Text style={styles.emptyCartaoText}>Ops! Você ainda não tem nenhum cartão de cadastrado.</Text>
                   <Text style={styles.emptyCartaoSub}>Melhore seu controle financeiro agora!</Text>
                   <TouchableOpacity style={styles.addCartaoButton} onPress={() => navigation.navigate('AddCard')}>
                     <Text style={styles.addCartaoButtonText}>ADICIONAR NOVO CARTÃO</Text>
@@ -783,6 +850,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
   },
+  parcelaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  parcelaRowVencida: {
+    backgroundColor: 'rgba(255, 80, 80, 0.12)',
+    marginHorizontal: -spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  parcelaInfo: { flex: 1 },
+  parcelaDesc: { fontSize: 15, color: colors.textPrimary, fontWeight: '600' },
+  parcelaCartao: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  parcelaVenc: { fontSize: 12, color: colors.warning || '#f0b429', marginTop: 2 },
+  parcelaVencVencida: { color: colors.error || '#e57373' },
+  parcelaValor: { fontSize: 14, color: colors.textSecondary, marginRight: spacing.sm },
+  parcelaPagoBtn: { padding: spacing.xs },
+  labelSmall: { fontSize: 12, color: colors.textMuted },
   planejamentoRow: {
     flexDirection: 'row',
     alignItems: 'center',

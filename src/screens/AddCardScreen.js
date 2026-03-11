@@ -30,6 +30,7 @@ export default function AddCardScreen({ navigation, route }) {
   const [nome, setNome] = useState('');
   const [limite, setLimite] = useState('');
   const [bandeira, setBandeira] = useState('Outro Cartão');
+  const [tipoCartao, setTipoCartao] = useState('credito');
   const [ativo, setAtivo] = useState(true);
   const [modalBandeiraVisible, setModalBandeiraVisible] = useState(false);
   const [diaFechamento, setDiaFechamento] = useState('');
@@ -53,6 +54,7 @@ export default function AddCardScreen({ navigation, route }) {
       setNome(editar.nome || '');
       setLimite(editar.limite != null && editar.limite > 0 ? numberToRaw(editar.limite) : '');
       setBandeira(editar.bandeira || 'Outro Cartão');
+      setTipoCartao(editar.tipo === 'debito' ? 'debito' : 'credito');
       setAtivo(editar.ativo !== false);
       setDiaFechamento(editar.diaFechamento != null ? String(editar.diaFechamento) : '');
       setDiaVencimento(editar.diaVencimento != null ? String(editar.diaVencimento) : '');
@@ -72,6 +74,7 @@ export default function AddCardScreen({ navigation, route }) {
         nome: n,
         limite: limiteNum,
         bandeira,
+        tipo: tipoCartao,
         ativo,
         diaFechamento: diaFechamentoNum,
         diaVencimento: diaVencimentoNum,
@@ -81,6 +84,7 @@ export default function AddCardScreen({ navigation, route }) {
         nome: n,
         limite: limiteNum,
         bandeira,
+        tipo: tipoCartao,
         ativo,
         diaFechamento: diaFechamentoNum,
         diaVencimento: diaVencimentoNum,
@@ -154,6 +158,25 @@ export default function AddCardScreen({ navigation, route }) {
             </TouchableOpacity>
           </>
         )}
+        <Text style={styles.label}>Tipo do cartão</Text>
+        <View style={styles.tipoRow}>
+          <TouchableOpacity
+            style={[styles.tipoChip, tipoCartao === 'credito' && styles.tipoChipActive]}
+            onPress={() => setTipoCartao('credito')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="card-outline" size={20} color={tipoCartao === 'credito' ? colors.textPrimary : colors.textMuted} />
+            <Text style={[styles.tipoChipText, tipoCartao === 'credito' && styles.tipoChipTextActive]}>Crédito</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tipoChip, tipoCartao === 'debito' && styles.tipoChipActive]}
+            onPress={() => setTipoCartao('debito')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="wallet-outline" size={20} color={tipoCartao === 'debito' ? colors.textPrimary : colors.textMuted} />
+            <Text style={[styles.tipoChipText, tipoCartao === 'debito' && styles.tipoChipTextActive]}>Débito</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.label}>Limite (opcional)</Text>
         <TextInput
           style={styles.input}
@@ -351,6 +374,20 @@ const styles = StyleSheet.create({
   },
   bandeiraText: { flex: 1, fontSize: 16, color: colors.textPrimary },
   placeholderText: { color: colors.textMuted },
+  tipoRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+  tipoChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.md,
+  },
+  tipoChipActive: { backgroundColor: colors.primary },
+  tipoChipText: { fontSize: 15, color: colors.textMuted, fontWeight: '500' },
+  tipoChipTextActive: { color: colors.textPrimary, fontWeight: '600' },
   ativoRow: {
     flexDirection: 'row',
     alignItems: 'center',
