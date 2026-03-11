@@ -3,6 +3,7 @@ import { categoriasPadrao } from '../constants/categorias';
 import { loadCategorias as loadCategoriasStorage, saveCategorias as saveCategoriasStorage } from '../utils/storage';
 import { loadCardsTelaInicial as loadCardsStorage, saveCardsTelaInicial as saveCardsStorage } from '../utils/storage';
 import { loadFinanciamentos as loadFinanciamentosStorage, saveFinanciamentos as saveFinanciamentosStorage } from '../utils/storage';
+import { loadObjetivos as loadObjetivosStorage, saveObjetivos as saveObjetivosStorage } from '../utils/storage';
 
 const AppContext = createContext(null);
 
@@ -38,6 +39,8 @@ export function AppProvider({ children }) {
   const [cardsLoaded, setCardsLoaded] = useState(false);
   const [financiamentos, setFinanciamentosState] = useState([]);
   const [financiamentosLoaded, setFinanciamentosLoaded] = useState(false);
+  const [objetivos, setObjetivosState] = useState([]);
+  const [objetivosLoaded, setObjetivosLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +87,22 @@ export function AppProvider({ children }) {
     if (!financiamentosLoaded) return;
     saveFinanciamentosStorage(financiamentos);
   }, [financiamentos, financiamentosLoaded]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadObjetivosStorage().then((saved) => {
+      if (!cancelled && saved && Array.isArray(saved)) {
+        setObjetivosState(saved);
+      }
+      if (!cancelled) setObjetivosLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!objetivosLoaded) return;
+    saveObjetivosStorage(objetivos);
+  }, [objetivos, objetivosLoaded]);
 
   const addConta = useCallback((conta) => {
     setContas((prev) => [...prev, {
@@ -386,6 +405,59 @@ export function AppProvider({ children }) {
     setFinanciamentosState((prev) => prev.filter((f) => f.id !== id));
   }, []);
 
+  const addObjetivo = useCallback((data) => {
+    const novo = {
+      id: Date.now().toString(),
+      nome: (data.nome || '').trim() || 'Objetivo',
+      valorMeta: Math.max(0, parseFloat(data.valorMeta) || 0),
+      valorInicial: Math.max(0, parseFloat(data.valorInicial) || 0),
+      dataLimite: data.dataLimite || null,
+      depositos: [],
+      concluido: false,
+      pausado: false,
+      icon: data.icon || null,
+      color: data.color || null,
+    };
+    setObjetivosState((prev) => [...prev, novo]);
+    return novo.id;
+  }, []);
+
+  const updateObjetivo = useCallback((id, payload) => {
+    setObjetivosState((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, ...payload } : o))
+    );
+  }, []);
+
+  const removeObjetivo = useCallback((id) => {
+    setObjetivosState((prev) => prev.filter((o) => o.id !== id));
+  }, []);
+
+  const addDepositoObjetivo = useCallback((objetivoId, valor) => {
+    const v = Math.max(0, parseFloat(valor) || 0);
+    if (v <= 0) return;
+    const now = new Date();
+    const dep = {
+      id: Date.now().toString(),
+      valor: v,
+      data: now.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    };
+    setObjetivosState((prev) =>
+      prev.map((o) =>
+        o.id === objetivoId ? { ...o, depositos: [...(o.depositos || []), dep] } : o
+      )
+    );
+  }, []);
+
+  const removeDepositoObjetivo = useCallback((objetivoId, depositoId) => {
+    setObjetivosState((prev) =>
+      prev.map((o) =>
+        o.id === objetivoId
+          ? { ...o, depositos: (o.depositos || []).filter((d) => d.id !== depositoId) }
+          : o
+      )
+    );
+  }, []);
+
   const getProximasParcelasCartao = useCallback(() => {
     return transacoes
       .filter((x) => x.tipo === 'despesa_cartao' && x.parcelaNumero != null && x.pago !== true)
@@ -452,6 +524,12 @@ export function AppProvider({ children }) {
     removeFinanciamento,
     getProximasParcelasCartao,
     getPrevisaoGastosCartaoPorMes,
+    objetivos,
+    addObjetivo,
+    updateObjetivo,
+    removeObjetivo,
+    addDepositoObjetivo,
+    removeDepositoObjetivo,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

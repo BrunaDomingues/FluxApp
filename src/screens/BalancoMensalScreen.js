@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,14 @@ import {
   Modal,
   Pressable,
   TextInput,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius, categoryChartColors } from '../constants/theme';
 import DonutChart from '../components/DonutChart';
 import { useApp } from '../context/AppContext';
+import { maskDateInput } from '../utils/dateMask';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const iconPorCategoria = { Alimentação: 'restaurant-outline', Moradia: 'home-outline', Transporte: 'car-outline', Lazer: 'happy-outline', Casa: 'home-outline', Saúde: 'medkit-outline', Educação: 'school-outline' };
@@ -65,6 +67,8 @@ export default function BalancoMensalScreen({ navigation }) {
   const [graficoTipo, setGraficoTipo] = useState(null); // null | 'despesas' | 'receitas'
   const [modalFiltroVisible, setModalFiltroVisible] = useState(false);
   const [modalGraficoVisible, setModalGraficoVisible] = useState(false);
+  const [menuGraficoPosition, setMenuGraficoPosition] = useState({ top: 0, right: 0 });
+  const menuGraficoButtonRef = useRef(null);
 
   const { contas, transacoes, categorias } = useApp();
   const contasVisiveis = contas.filter((c) => !c.arquivada);
@@ -194,6 +198,17 @@ export default function BalancoMensalScreen({ navigation }) {
     setModalFiltroVisible(true);
   };
 
+  const abrirMenuGrafico = () => {
+    menuGraficoButtonRef.current?.measureInWindow((x, y, w, h) => {
+      const windowWidth = Dimensions.get('window').width;
+      setMenuGraficoPosition({
+        top: y + h + 4,
+        right: windowWidth - (x + w),
+      });
+      setModalGraficoVisible(true);
+    });
+  };
+
   const prevMonth = () => {
     if (mes === 0) {
       setMes(11);
@@ -217,9 +232,11 @@ export default function BalancoMensalScreen({ navigation }) {
         <TouchableOpacity onPress={abrirModalFiltro} style={styles.headerIconBtn}>
           <Ionicons name="filter" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setModalGraficoVisible(true)} style={styles.headerIconBtn}>
-          <Ionicons name="ellipsis-vertical" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
+        <View ref={menuGraficoButtonRef} collapsable={false}>
+          <TouchableOpacity onPress={abrirMenuGrafico} style={styles.headerIconBtn}>
+            <Ionicons name="ellipsis-vertical" size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.monthNav}>
@@ -356,7 +373,8 @@ export default function BalancoMensalScreen({ navigation }) {
               placeholder="dd/mm/aaaa"
               placeholderTextColor={colors.textMuted}
               value={dataDeStr}
-              onChangeText={setDataDeStr}
+              onChangeText={(t) => setDataDeStr(maskDateInput(t))}
+              keyboardType="number-pad"
             />
             <Text style={[styles.modalLabel, { marginTop: spacing.sm }]}>Para</Text>
             <TextInput
@@ -364,7 +382,8 @@ export default function BalancoMensalScreen({ navigation }) {
               placeholder="dd/mm/aaaa"
               placeholderTextColor={colors.textMuted}
               value={dataParaStr}
-              onChangeText={setDataParaStr}
+              onChangeText={(t) => setDataParaStr(maskDateInput(t))}
+              keyboardType="number-pad"
             />
             <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>Situação</Text>
             <View style={styles.radioRow}>
@@ -408,7 +427,7 @@ export default function BalancoMensalScreen({ navigation }) {
 
       <Modal visible={modalGraficoVisible} transparent animationType="fade">
         <Pressable style={styles.modalBackdrop} onPress={() => setModalGraficoVisible(false)}>
-          <View style={styles.menuGraficoBox}>
+          <View style={[styles.menuGraficoBox, { top: menuGraficoPosition.top, right: menuGraficoPosition.right }]}>
             <TouchableOpacity
               style={styles.menuGraficoItem}
               onPress={() => { setGraficoTipo('despesas'); setModalGraficoVisible(false); }}
@@ -560,11 +579,16 @@ const styles = StyleSheet.create({
   radioCircleChecked: { backgroundColor: colors.secondary, borderColor: colors.secondary },
   radioLabel: { fontSize: 14, color: colors.textPrimary },
   menuGraficoBox: {
+    position: 'absolute',
     backgroundColor: colors.backgroundCard,
     borderRadius: borderRadius.md,
     padding: spacing.xs,
-    alignSelf: 'flex-end',
     minWidth: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 8,
   },
   menuGraficoItem: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
   menuGraficoText: { fontSize: 15, color: colors.textPrimary },

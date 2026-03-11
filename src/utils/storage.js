@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const KEY_CATEGORIAS = '@fluxapp_categorias';
 const KEY_CARDS_TELA_INICIAL = '@fluxapp_cards_tela_inicial';
 const KEY_FINANCIAMENTOS = '@fluxapp_financiamentos';
+const KEY_OBJETIVOS = '@fluxapp_objetivos';
 
 export async function loadCategorias() {
   try {
@@ -66,5 +67,26 @@ export async function saveFinanciamentos(financiamentos) {
     await AsyncStorage.setItem(KEY_FINANCIAMENTOS, JSON.stringify(financiamentos));
   } catch (e) {
     console.warn('saveFinanciamentos:', e);
+  }
+}
+
+export async function loadObjetivos() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY_OBJETIVOS);
+    if (raw) {
+      const data = JSON.parse(raw);
+      return Array.isArray(data) ? data : [];
+    }
+  } catch (e) {
+    console.warn('loadObjetivos:', e);
+  }
+  return [];
+}
+
+export async function saveObjetivos(objetivos) {
+  try {
+    await AsyncStorage.setItem(KEY_OBJETIVOS, JSON.stringify(objetivos));
+  } catch (e) {
+    console.warn('saveObjetivos:', e);
   }
 }

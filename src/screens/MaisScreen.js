@@ -21,7 +21,7 @@ const opcoesGerenciar = [
   { id: 'financiamentos', label: 'Financiamentos', icon: 'document-text-outline', screen: 'Financiamentos' },
   { id: 'categorias', label: 'Categorias', icon: 'pricetag-outline', screen: 'Categories' },
   { id: 'tags', label: 'Tags', icon: 'pricetags-outline', screen: null },
-  { id: 'objetivos', label: 'Objetivos', icon: 'flag-outline', screen: null },
+  { id: 'objetivos', label: 'Objetivos', icon: 'flag-outline', screen: 'Objetivos' },
   { id: 'importar', label: 'Importar dados', icon: 'cloud-upload-outline', screen: null },
   { id: 'exportar', label: 'Exportar relatório', icon: 'cloud-download-outline', screen: null },
   { id: 'cards', label: 'Cards da tela inicial', icon: 'grid-outline', screen: 'CardsDaTelaInicial' },

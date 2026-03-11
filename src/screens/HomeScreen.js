@@ -34,7 +34,7 @@ function getCatIcon(cat) {
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { contas, cartoes, saldoContas, categorias, transacoes, getGastoPorCategoriaNoMes, getReceitasNoMes, getOrcamento, cardsDaTelaInicial, cardsOrdem, financiamentos, getProximasParcelasCartao, updateTransacao } = useApp();
+  const { contas, cartoes, saldoContas, categorias, transacoes, getGastoPorCategoriaNoMes, getReceitasNoMes, getOrcamento, cardsDaTelaInicial, cardsOrdem, financiamentos, getProximasParcelasCartao, updateTransacao, objetivos } = useApp();
   const cartoesAtivos = cartoes.filter((c) => c.ativo !== false);
   const cards = cardsDaTelaInicial || {};
   const ordemBase = Array.isArray(cardsOrdem) && cardsOrdem.length > 0 ? cardsOrdem : [
@@ -625,13 +625,47 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.card}><Text style={styles.placeholderCardText}>Em breve.</Text></View>
           </React.Fragment>
         );
-      case 'objetivos':
+      case 'objetivos': {
+        const emAndamento = (objetivos || []).filter((o) => !o.concluido);
         return (
           <React.Fragment key={key}>
             <Text style={styles.sectionTitle}>Objetivos</Text>
-            <View style={styles.card}><Text style={styles.placeholderCardText}>Em breve.</Text></View>
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => navigation.navigate('Objetivos')}
+              activeOpacity={0.8}
+            >
+              {emAndamento.length === 0 ? (
+                <>
+                  <Text style={styles.placeholderCardText}>Definindo objetivos você alcança seus sonhos mais rápido.</Text>
+                  <Text style={styles.objetivosSub}>Que tal criar um pra te ajudar?</Text>
+                  <Text style={styles.objetivosLink}>VER OBJETIVOS</Text>
+                </>
+              ) : (
+                <>
+                  {emAndamento.slice(0, 2).map((obj) => {
+                    const totalGuardado = (obj.depositos || []).reduce((s, d) => s + (d.valor || 0), 0);
+                    const meta = obj.valorMeta || 1;
+                    const pct = Math.min(100, Math.round((totalGuardado / meta) * 100));
+                    return (
+                      <View key={obj.id} style={styles.objetivoPreviewRow}>
+                        <View style={styles.objetivoPreviewInfo}>
+                          <Text style={styles.objetivoPreviewNome}>{obj.nome}</Text>
+                          <Text style={styles.objetivoPreviewGuardado}>
+                            R$ {totalGuardado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} guardados · {pct}%
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                      </View>
+                    );
+                  })}
+                  <Text style={styles.objetivosLink}>VER TODOS OS OBJETIVOS</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </React.Fragment>
         );
+      }
       default:
         return null;
     }
@@ -1120,6 +1154,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
   },
+  objetivosSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+  },
+  objetivosLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.secondary,
+    marginTop: spacing.sm,
+  },
+  objetivoPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  objetivoPreviewInfo: { flex: 1 },
+  objetivoPreviewNome: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+  objetivoPreviewGuardado: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
   parcelaRow: {
     flexDirection: 'row',
     alignItems: 'center',
