@@ -31,9 +31,8 @@ export default function PlanningScreen({ navigation }) {
   const previsaoParcelasCartao = getPrevisaoGastosCartaoPorMes(mes, ano);
   const totalOrcamento = orc.total || 0;
   const totalGasto = useMemo(() => Object.values(gastoPorCat).reduce((s, v) => s + v, 0), [gastoPorCat]);
-  const totalPrevistoMes = totalGasto + previsaoParcelasCartao;
   const restamTotal = Math.max(0, totalOrcamento - totalGasto);
-  const restamAposParcelas = Math.max(0, totalOrcamento - totalPrevistoMes);
+  const restamAposParcelas = restamTotal;
   const diasNoMes = new Date(ano, mes + 1, 0).getDate();
   const diaHoje = now.getDate();
   const diasRestantes = Math.max(1, diasNoMes - diaHoje + 1);

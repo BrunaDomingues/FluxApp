@@ -269,10 +269,18 @@ export function AppProvider({ children }) {
   }, []);
 
   // Gasto por categoria no mês (apenas despesas)
+  // Para cartão de crédito: considera o mês de VENCIMENTO da parcela (o que será pago no mês), não o mês da compra
   const getGastoPorCategoriaNoMes = useCallback((mes, ano) => {
-    const despesas = transacoes.filter(
-      (t) => (t.tipo === 'saida' || t.tipo === 'despesa_cartao') && t.mes === mes && t.ano === ano
-    );
+    const despesas = transacoes.filter((t) => {
+      if (t.tipo === 'saida') return t.mes === mes && t.ano === ano;
+      if (t.tipo === 'despesa_cartao') {
+        if (t.mesVencimento != null && t.anoVencimento != null) {
+          return t.mesVencimento === mes && t.anoVencimento === ano;
+        }
+        return t.mes === mes && t.ano === ano;
+      }
+      return false;
+    });
     const porCat = {};
     despesas.forEach((t) => {
       const id = t.categoriaId || 'outros';
