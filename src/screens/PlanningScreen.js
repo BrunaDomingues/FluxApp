@@ -79,7 +79,7 @@ export default function PlanningScreen({ navigation }) {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
         <Text style={styles.headerLabel}>Mensal</Text>
         <Ionicons name="chevron-down" size={18} color={colors.textPrimary} />
@@ -104,7 +104,7 @@ export default function PlanningScreen({ navigation }) {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: (spacing.xl * 2) + insets.bottom }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 88 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         {!temOrcamento ? (
@@ -251,15 +251,18 @@ export default function PlanningScreen({ navigation }) {
           </View>
         )}
 
-        <TouchableOpacity
-          style={styles.definirBtn}
-          onPress={() => navigation.navigate('DefinirOrcamento', { mes, ano })}
-        >
-          <Text style={styles.definirBtnText}>DEFINIR NOVO ORÇAMENTO</Text>
-        </TouchableOpacity>
       </>
         )}
       </ScrollView>
+      {temOrcamento && (
+        <TouchableOpacity
+          style={[styles.fabDefinir, { bottom: spacing.lg + insets.bottom }]}
+          onPress={() => navigation.navigate('DefinirOrcamento', { mes, ano })}
+          activeOpacity={0.9}
+        >
+          <Ionicons name="add" size={28} color={colors.textPrimary} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -393,6 +396,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
     letterSpacing: 0.5,
+  },
+  fabDefinir: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 6,
   },
   headerIconBtn: {
     padding: spacing.xs,

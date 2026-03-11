@@ -130,7 +130,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
+      style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.header}>
@@ -142,7 +142,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
 
       {/* Etapa 1: Receita mensal */}
       {step === 1 && (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 88 + insets.bottom }]} keyboardShouldPersistTaps="handled">
           <Text style={styles.stepTitle}>Planejamento inicial</Text>
           <Text style={styles.stepSub}>Vamos orçar! Comece nos dizendo qual é sua receita mensal total.</Text>
           <TextInput
@@ -159,15 +159,12 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
           <TouchableOpacity style={styles.linkPorque}>
             <Text style={styles.linkPorqueText}>POR QUE PRECISAMOS SABER DISSO?</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.proximoBtn} onPress={avancarStep1}>
-            <Ionicons name="arrow-forward" size={28} color={colors.textPrimary} />
-          </TouchableOpacity>
         </ScrollView>
       )}
 
       {/* Etapa 2: Valor máximo de gastos (80% padrão) */}
       {step === 2 && (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 88 + insets.bottom }]} keyboardShouldPersistTaps="handled">
           <Text style={styles.stepTitle}>Valor máximo de gastos</Text>
           <Text style={styles.stepSub}>
             {receitaNum > 0
@@ -203,15 +200,12 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
             }}
             keyboardType="numeric"
           />
-          <TouchableOpacity style={styles.proximoBtn} onPress={avancarStep2}>
-            <Ionicons name="arrow-forward" size={28} color={colors.textPrimary} />
-          </TouchableOpacity>
         </ScrollView>
       )}
 
       {/* Etapa 3: Escolher categorias */}
       {step === 3 && (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 88 + insets.bottom }]} keyboardShouldPersistTaps="handled">
           <Text style={styles.stepTitle}>Categorias e subcategorias</Text>
           <Text style={styles.stepSub}>Escolha para quais categorias você gostaria de definir orçamento.</Text>
           {categoriasSaida.map((cat) => (
@@ -230,15 +224,12 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
               </View>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity style={styles.proximoBtn} onPress={() => setStep(4)}>
-            <Ionicons name="arrow-forward" size={28} color={colors.textPrimary} />
-          </TouchableOpacity>
         </ScrollView>
       )}
 
       {/* Etapa 4: Metas e valor restante */}
       {step === 4 && (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: (spacing.xl * 2) + insets.bottom }]} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 88 + insets.bottom }]} keyboardShouldPersistTaps="handled">
           <Text style={styles.stepTitle}>Metas e Orçamentos</Text>
           <View style={styles.totalCard}>
             <Text style={styles.totalCardValor}>R$ {totalNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
@@ -267,12 +258,21 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
             <Ionicons name="add-circle-outline" size={22} color={colors.secondary} />
             <Text style={styles.addCatBtnText}>ADICIONAR CATEGORIA</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity style={styles.salvarBtn} onPress={handleSalvar}>
-            <Text style={styles.salvarBtnText}>SALVAR PLANEJAMENTO</Text>
-          </TouchableOpacity>
         </ScrollView>
       )}
+
+      <TouchableOpacity
+        style={[styles.fabProximo, { bottom: spacing.lg + insets.bottom }]}
+        onPress={() => {
+          if (step === 1) avancarStep1();
+          else if (step === 2) avancarStep2();
+          else if (step === 3) setStep(4);
+          else if (step === 4) handleSalvar();
+        }}
+        activeOpacity={0.9}
+      >
+        <Ionicons name={step === 4 ? 'checkmark' : 'arrow-forward'} size={28} color={colors.textPrimary} />
+      </TouchableOpacity>
 
       <Modal visible={!!modalMeta} transparent animationType="fade">
         <Pressable style={styles.modalBackdrop} onPress={() => setModalMeta(null)}>
@@ -376,6 +376,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  fabProximo: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 6,
   },
   catRowSelect: {
     flexDirection: 'row',

@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
@@ -24,9 +25,16 @@ function buildAnos() {
 }
 const ANOS = buildAnos();
 
+const PLANEJAMENTO_CARD_WIDTH = Dimensions.get('window').width * 0.78;
+const iconPorCategoria = { Alimentação: 'restaurant-outline', Moradia: 'home-outline', Transporte: 'car-outline', Lazer: 'happy-outline', Casa: 'home-outline', Saúde: 'medkit-outline', Educação: 'school-outline' };
+function getCatIcon(cat) {
+  if (cat && cat.icon) return cat.icon;
+  return iconPorCategoria[cat?.nome] || 'pricetag-outline';
+}
+
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { contas, cartoes, saldoContas, categorias, getGastoPorCategoriaNoMes, getReceitasNoMes, cardsDaTelaInicial, cardsOrdem, financiamentos, getProximasParcelasCartao, updateTransacao } = useApp();
+  const { contas, cartoes, saldoContas, categorias, transacoes, getGastoPorCategoriaNoMes, getReceitasNoMes, getOrcamento, cardsDaTelaInicial, cardsOrdem, financiamentos, getProximasParcelasCartao, updateTransacao } = useApp();
   const cartoesAtivos = cartoes.filter((c) => c.ativo !== false);
   const cards = cardsDaTelaInicial || {};
   const ordemBase = Array.isArray(cardsOrdem) && cardsOrdem.length > 0 ? cardsOrdem : [
@@ -44,6 +52,46 @@ export default function HomeScreen({ navigation }) {
   const [selectedAno, setSelectedAno] = useState(now.getFullYear());
   const [monthModalVisible, setMonthModalVisible] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
+  const [filtroFrequencia, setFiltroFrequencia] = useState('7'); // '7' | '30' | '365'
+
+  const getGastoNoDia = (ano, mes, dia) => {
+    return transacoes
+      .filter((t) => (t.tipo === 'saida' || t.tipo === 'despesa_cartao') && t.ano === ano && t.mes === mes)
+      .filter((t) => {
+        const parts = (t.data || '').split('/');
+        const d = parseInt(parts[0], 10);
+        return !isNaN(d) && d === dia;
+      })
+      .reduce((s, t) => s + Math.abs(t.valor || 0), 0);
+  };
+
+  const dadosFrequenciaGastos = (() => {
+    if (filtroFrequencia === '365') {
+      const result = [];
+      const hoje = new Date();
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+        const gastoMes = getGastoPorCategoriaNoMes(d.getMonth(), d.getFullYear());
+        const total = Object.values(gastoMes).reduce((a, b) => a + b, 0);
+        result.push({ label: MESES_SHORT[d.getMonth()], value: total });
+      }
+      return result;
+    }
+    const n = filtroFrequencia === '30' ? 30 : 7;
+    const hoje = new Date();
+    const result = [];
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(hoje);
+      d.setDate(d.getDate() - i);
+      const valor = getGastoNoDia(d.getFullYear(), d.getMonth(), d.getDate());
+      result.push({
+        label: `${String(d.getDate()).padStart(2, '0')}/${MESES_SHORT[d.getMonth()].toLowerCase()}.`,
+        value: valor,
+      });
+    }
+    return result;
+  })();
+  const maxFrequencia = Math.max(1, ...dadosFrequenciaGastos.map((x) => x.value));
 
   const saldo = saldoContas;
   const entradas = getReceitasNoMes(selectedMes, selectedAno);
@@ -336,8 +384,55 @@ export default function HomeScreen({ navigation }) {
             </View>
           </React.Fragment>
         );
-      case 'balancoMensal':
-        return null;
+      case 'balancoMensal': {
+        const balancoValor = entradas - saidas;
+        return (
+          <React.Fragment key={key}>
+            <Text style={styles.sectionTitle}>Balanço mensal</Text>
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => navigation.navigate('BalancoMensal')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.balancoCardContent}>
+                <View style={styles.balancoBarrasWrap}>
+                  <View style={styles.balancoBarCol}>
+                    <View style={[styles.balancoBar, styles.balancoBarReceita, { height: entradas > 0 || saidas > 0 ? Math.max(8, (entradas / Math.max(entradas, saidas, 1)) * 56) : 8 }]} />
+                    <Text style={styles.balancoBarLabel}>Receitas</Text>
+                  </View>
+                  <View style={styles.balancoBarCol}>
+                    <View style={[styles.balancoBar, styles.balancoBarDespesa, { height: saidas > 0 || entradas > 0 ? Math.max(8, (saidas / Math.max(entradas, saidas, 1)) * 56) : 8 }]} />
+                    <Text style={styles.balancoBarLabel}>Despesas</Text>
+                  </View>
+                </View>
+                <View style={styles.balancoValoresWrap}>
+                  <View style={styles.balancoValorItem}>
+                    <Text style={styles.balancoValorLabel}>Receitas</Text>
+                    <Text style={[styles.balancoValorNum, { color: colors.positive }]}>
+                      R$ {entradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </Text>
+                  </View>
+                  <View style={styles.balancoValorItem}>
+                    <Text style={styles.balancoValorLabel}>Despesas</Text>
+                    <Text style={[styles.balancoValorNum, { color: colors.spending }]}>
+                      R$ {saidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </Text>
+                  </View>
+                  <View style={styles.balancoValorItem}>
+                    <Text style={styles.balancoValorLabel}>Balanço</Text>
+                    <Text style={[styles.balancoValorNum, { color: balancoValor >= 0 ? colors.positive : colors.spending }]}>
+                      R$ {balancoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.detalhesLink} onPress={() => navigation.navigate('BalancoMensal')}>
+                <Text style={styles.detalhesLinkText}>DETALHES</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </React.Fragment>
+        );
+      }
       case 'despesasPorCategoria':
         return (
           <React.Fragment key={key}>
@@ -351,24 +446,123 @@ export default function HomeScreen({ navigation }) {
             </View>
           </React.Fragment>
         );
-      case 'planejamentoMensal':
+      case 'planejamentoMensal': {
+        const orc = getOrcamento(selectedMes, selectedAno);
+        const orcamentoPorCategoria = orc.categorias || {};
+        const totalOrcamento = orc.total || 0;
+        const gastoPorCatPlanejamento = getGastoPorCategoriaNoMes(selectedMes, selectedAno);
+        const totalGastoPlanejamento = Object.values(gastoPorCatPlanejamento).reduce((s, v) => s + v, 0);
+        const categoriasSaida = categorias.filter((c) => c.tipo === 'saida');
+        const totalOrcamentoCategorias = Object.values(orcamentoPorCategoria).reduce((s, v) => s + (v || 0), 0);
+        const restantesCategorias = Math.max(0, totalOrcamento - totalOrcamentoCategorias);
+
+        if (totalOrcamento <= 0) {
+          return (
+            <React.Fragment key={key}>
+              <Text style={styles.sectionTitle}>Planejamento mensal</Text>
+              <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Planejamento')} activeOpacity={0.8}>
+                <View style={styles.planejamentoRow}>
+                  <View style={styles.planejamentoIconWrap}>
+                    <Ionicons name="document-text-outline" size={24} color={colors.primary} />
+                  </View>
+                  <View style={styles.planejamentoInfo}>
+                    <Text style={styles.planejamentoLabel}>Planejamento total</Text>
+                    <Text style={styles.planejamentoSub}>Toque para ver o planejamento</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                </View>
+              </TouchableOpacity>
+            </React.Fragment>
+          );
+        }
+
+        const restamTotal = Math.max(0, totalOrcamento - totalGastoPlanejamento);
+        const pctTotal = totalOrcamento ? Math.min(100, (totalGastoPlanejamento / totalOrcamento) * 100) : 0;
+
+        const planejamentoCards = [
+          {
+            id: 'total',
+            label: 'Planejamento total',
+            icon: 'document-text-outline',
+            restam: restamTotal,
+            gasto: totalGastoPlanejamento,
+            limite: totalOrcamento,
+            pct: pctTotal,
+            color: colors.secondary,
+          },
+          ...categoriasSaida
+            .filter((cat) => (orcamentoPorCategoria[cat.id] || 0) > 0)
+            .map((cat) => {
+              const limite = orcamentoPorCategoria[cat.id] || 0;
+              const gasto = gastoPorCatPlanejamento[cat.id] || 0;
+              const restam = Math.max(0, limite - gasto);
+              const pct = limite ? (gasto / limite) * 100 : 0;
+              return {
+                id: cat.id,
+                label: cat.nome,
+                icon: getCatIcon(cat),
+                restam,
+                gasto,
+                limite,
+                pct: Math.min(100, pct),
+                color: colors.spending,
+              };
+            }),
+        ];
+        if (restantesCategorias > 0) {
+          planejamentoCards.push({
+            id: 'restantes',
+            label: 'Categorias restantes',
+            icon: 'wallet-outline',
+            restam: restantesCategorias,
+            gasto: 0,
+            limite: restantesCategorias,
+            pct: 0,
+            color: colors.secondary,
+          });
+        }
+
         return (
           <React.Fragment key={key}>
             <Text style={styles.sectionTitle}>Planejamento mensal</Text>
-            <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Planejamento')} activeOpacity={0.8}>
-              <View style={styles.planejamentoRow}>
-                <View style={styles.planejamentoIconWrap}>
-                  <Ionicons name="document-text-outline" size={24} color={colors.primary} />
-                </View>
-                <View style={styles.planejamentoInfo}>
-                  <Text style={styles.planejamentoLabel}>Planejamento total</Text>
-                  <Text style={styles.planejamentoSub}>Toque para ver o planejamento</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-              </View>
-            </TouchableOpacity>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.planejamentoScrollContent}
+            >
+              {planejamentoCards.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.planejamentoCard, { width: PLANEJAMENTO_CARD_WIDTH }]}
+                  onPress={() => navigation.navigate('Planejamento')}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.planejamentoCardRow}>
+                    <View style={[styles.planejamentoCardIcon, { backgroundColor: item.color + '40' }]}>
+                      <Ionicons name={item.icon} size={22} color={item.color} />
+                    </View>
+                    <View style={styles.planejamentoCardInfo}>
+                      <Text style={styles.planejamentoCardLabel} numberOfLines={1}>{item.label}</Text>
+                      <Text style={styles.planejamentoCardRestam}>
+                        Restam R$ {item.restam.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                  </View>
+                  <View style={styles.planejamentoProgressWrap}>
+                    <View style={styles.planejamentoProgressTrack}>
+                      <View style={[styles.planejamentoProgressFill, { width: `${item.pct}%`, backgroundColor: item.color }]} />
+                    </View>
+                    <Text style={styles.planejamentoProgressText}>
+                      R$ {item.gasto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ {item.limite.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </React.Fragment>
         );
+      }
       case 'economiaMensal':
         return (
           <React.Fragment key={key}>
@@ -385,7 +579,43 @@ export default function HomeScreen({ navigation }) {
         return (
           <React.Fragment key={key}>
             <Text style={styles.sectionTitle}>Frequência de gastos</Text>
-            <View style={styles.card}><Text style={styles.placeholderCardText}>Em breve.</Text></View>
+            <View style={styles.card}>
+              <View style={styles.frequenciaFiltrosRow}>
+                {[
+                  { id: '7', label: '7 dias' },
+                  { id: '30', label: '30 dias' },
+                  { id: '365', label: 'Último ano' },
+                ].map((f) => (
+                  <TouchableOpacity
+                    key={f.id}
+                    style={[styles.frequenciaFiltroBtn, filtroFrequencia === f.id && styles.frequenciaFiltroBtnActive]}
+                    onPress={() => setFiltroFrequencia(f.id)}
+                  >
+                    <Text style={[styles.frequenciaFiltroText, filtroFrequencia === f.id && styles.frequenciaFiltroTextActive]}>{f.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.frequenciaChartWrap}>
+                {dadosFrequenciaGastos.map((item, i) => (
+                  <View key={i} style={styles.frequenciaBarWrap}>
+                    <View
+                      style={[
+                        styles.frequenciaBar,
+                        { height: Math.max(4, (item.value / maxFrequencia) * 80) },
+                      ]}
+                    />
+                  </View>
+                ))}
+              </View>
+              <View style={styles.frequenciaLabelsRow}>
+                {dadosFrequenciaGastos.map((item, i) => (
+                  <Text key={i} style={styles.frequenciaLabel} numberOfLines={1}>{item.label}</Text>
+                ))}
+              </View>
+              <TouchableOpacity style={styles.detalhesLink} onPress={() => navigation.navigate('BalancoMensal')}>
+                <Text style={styles.detalhesLinkText}>DETALHES</Text>
+              </TouchableOpacity>
+            </View>
           </React.Fragment>
         );
       case 'transacoesFavoritas':
@@ -926,6 +1156,73 @@ const styles = StyleSheet.create({
   planejamentoInfo: { flex: 1 },
   planejamentoLabel: { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
   planejamentoSub: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  planejamentoScrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    gap: spacing.md,
+    paddingRight: spacing.lg * 2,
+  },
+  planejamentoCard: {
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginRight: spacing.md,
+  },
+  planejamentoCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  planejamentoCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  planejamentoCardInfo: { flex: 1 },
+  planejamentoCardLabel: { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
+  planejamentoCardRestam: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  planejamentoProgressWrap: { marginTop: spacing.xs },
+  planejamentoProgressTrack: {
+    height: 8,
+    backgroundColor: colors.backgroundCardElevated,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: spacing.xs,
+  },
+  planejamentoProgressFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 4,
+  },
+  planejamentoProgressText: { fontSize: 12, color: colors.textMuted },
+  balancoCardContent: { marginBottom: spacing.sm },
+  balancoBarrasWrap: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: spacing.xl, marginBottom: spacing.md, height: 64 },
+  balancoBarCol: { alignItems: 'center', flex: 1, justifyContent: 'flex-end' },
+  balancoBar: { width: 24, borderRadius: 4 },
+  balancoBarReceita: { backgroundColor: colors.positive },
+  balancoBarDespesa: { backgroundColor: colors.spending },
+  balancoBarLabel: { fontSize: 11, color: colors.textMuted, marginTop: 4 },
+  balancoValoresWrap: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: spacing.sm },
+  balancoValorItem: { minWidth: '30%' },
+  balancoValorLabel: { fontSize: 12, color: colors.textMuted },
+  balancoValorNum: { fontSize: 16, fontWeight: '700' },
+  detalhesLink: { alignSelf: 'flex-end', marginTop: spacing.sm },
+  detalhesLinkText: { fontSize: 13, fontWeight: '700', color: colors.secondary, letterSpacing: 0.5 },
+  frequenciaFiltrosRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  frequenciaFiltroBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: borderRadius.full, backgroundColor: colors.backgroundCardElevated },
+  frequenciaFiltroBtnActive: { backgroundColor: colors.secondary },
+  frequenciaFiltroText: { fontSize: 13, fontWeight: '600', color: colors.textMuted },
+  frequenciaFiltroTextActive: { color: colors.textPrimary },
+  frequenciaChartWrap: { flexDirection: 'row', alignItems: 'flex-end', height: 88, gap: 2, marginBottom: spacing.xs },
+  frequenciaBarWrap: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
+  frequenciaBar: { width: '100%', maxWidth: 12, borderRadius: 3, backgroundColor: colors.positive + '99' },
+  frequenciaLabelsRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  frequenciaLabel: { fontSize: 9, color: colors.textMuted, flex: 1, textAlign: 'center' },
   economiaRow: {
     flexDirection: 'row',
     alignItems: 'center',

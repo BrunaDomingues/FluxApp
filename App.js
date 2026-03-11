@@ -27,6 +27,7 @@ import CardsDaTelaInicialScreen from './src/screens/CardsDaTelaInicialScreen';
 import FinanciamentosScreen from './src/screens/FinanciamentosScreen';
 import AddFinanciamentoScreen from './src/screens/AddFinanciamentoScreen';
 import FinanciamentoDetalhesScreen from './src/screens/FinanciamentoDetalhesScreen';
+import BalancoMensalScreen from './src/screens/BalancoMensalScreen';
 import { colors } from './src/constants/theme';
 
 const Stack = createStackNavigator();
@@ -79,6 +80,7 @@ export default function App() {
             <Stack.Screen name="Financiamentos" component={FinanciamentosScreen} />
             <Stack.Screen name="AddFinanciamento" component={AddFinanciamentoScreen} />
             <Stack.Screen name="FinanciamentoDetalhes" component={FinanciamentoDetalhesScreen} />
+            <Stack.Screen name="BalancoMensal" component={BalancoMensalScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </AppProvider>
