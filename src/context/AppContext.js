@@ -1,10 +1,14 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { categoriasPadrao } from '../constants/categorias';
-import { loadCategorias as loadCategoriasStorage, saveCategorias as saveCategoriasStorage } from '../utils/storage';
-import { loadCardsTelaInicial as loadCardsStorage, saveCardsTelaInicial as saveCardsStorage } from '../utils/storage';
-import { loadFinanciamentos as loadFinanciamentosStorage, saveFinanciamentos as saveFinanciamentosStorage } from '../utils/storage';
-import { loadObjetivos as loadObjetivosStorage, saveObjetivos as saveObjetivosStorage } from '../utils/storage';
 import {
+  loadCategorias as loadCategoriasStorage,
+  saveCategorias as saveCategoriasStorage,
+  loadCardsTelaInicial as loadCardsStorage,
+  saveCardsTelaInicial as saveCardsStorage,
+  loadFinanciamentos as loadFinanciamentosStorage,
+  saveFinanciamentos as saveFinanciamentosStorage,
+  loadObjetivos as loadObjetivosStorage,
+  saveObjetivos as saveObjetivosStorage,
   loadContas as loadContasStorage,
   saveContas as saveContasStorage,
   loadCartoes as loadCartoesStorage,
@@ -17,8 +21,15 @@ import {
   saveUsuarios as saveUsuariosStorage,
   loadRecebimentosUsuarios as loadRecebimentosUsuariosStorage,
   saveRecebimentosUsuarios as saveRecebimentosUsuariosStorage,
+  loadCobrancasRecebidas as loadCobrancasRecebidasStorage,
+  saveCobrancasRecebidas as saveCobrancasRecebidasStorage,
+  loadPerfil as loadPerfilStorage,
+  savePerfil as savePerfilStorage,
+  clearAllFluxAppData,
 } from '../utils/storage';
 import { parseDateDDMM } from '../utils/dateMask';
+
+const PRINCIPAL_ID = 'principal';
 
 const AppContext = createContext(null);
 
@@ -61,10 +72,31 @@ export function AppProvider({ children }) {
   const [objetivosLoaded, setObjetivosLoaded] = useState(false);
   const [orcamentoMensal, setOrcamentoMensalState] = useState({});
   const [orcamentoLoaded, setOrcamentoLoaded] = useState(false);
-  const [usuarios, setUsuariosState] = useState([]);
+  const [usuariosOutros, setUsuariosOutros] = useState([]);
   const [usuariosLoaded, setUsuariosLoaded] = useState(false);
   const [recebimentosDeUsuarios, setRecebimentosDeUsuarios] = useState([]);
   const [recebimentosLoaded, setRecebimentosLoaded] = useState(false);
+  const [cobrancasRecebidas, setCobrancasRecebidas] = useState([]);
+  const [cobrancasRecebidasLoaded, setCobrancasRecebidasLoaded] = useState(false);
+  const [perfil, setPerfilState] = useState(null);
+  const [perfilLoaded, setPerfilLoaded] = useState(false);
+
+  const resetAllData = useCallback(async () => {
+    await clearAllFluxAppData();
+    setCategorias(categoriasPadrao);
+    setCardsDaTelaInicialState(CARDS_PADRAO);
+    setCardsOrdemState(CARDS_ORDER_DEFAULT);
+    setFinanciamentosState([]);
+    setObjetivosState([]);
+    setOrcamentoMensalState({});
+    setUsuariosOutros([]);
+    setRecebimentosDeUsuarios([]);
+    setCobrancasRecebidas([]);
+    setPerfilState(null);
+    setCartoes([]);
+    setTransacoes([]);
+    setContas([{ id: 'carteira', nome: 'Carteira', saldo: 0 }]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -196,7 +228,7 @@ export function AppProvider({ children }) {
     let cancelled = false;
     loadUsuariosStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
-        setUsuariosState(saved);
+        setUsuariosOutros(saved.filter((u) => u.id !== PRINCIPAL_ID && !u.principal));
       }
       if (!cancelled) setUsuariosLoaded(true);
     });
@@ -205,8 +237,12 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (!usuariosLoaded) return;
-    saveUsuariosStorage(usuarios);
-  }, [usuarios, usuariosLoaded]);
+    const full = [
+      { id: PRINCIPAL_ID, nome: perfil?.nomeCompleto || 'Principal', principal: true },
+      ...(usuariosOutros || []),
+    ];
+    saveUsuariosStorage(full);
+  }, [usuariosOutros, perfil, usuariosLoaded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -223,6 +259,56 @@ export function AppProvider({ children }) {
     if (!recebimentosLoaded) return;
     saveRecebimentosUsuariosStorage(recebimentosDeUsuarios);
   }, [recebimentosDeUsuarios, recebimentosLoaded]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadCobrancasRecebidasStorage().then((saved) => {
+      if (!cancelled && saved && Array.isArray(saved)) {
+        setCobrancasRecebidas(saved);
+      }
+      if (!cancelled) setCobrancasRecebidasLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!cobrancasRecebidasLoaded) return;
+    saveCobrancasRecebidasStorage(cobrancasRecebidas);
+  }, [cobrancasRecebidas, cobrancasRecebidasLoaded]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadPerfilStorage().then((saved) => {
+      if (!cancelled && saved && typeof saved === 'object') {
+        setPerfilState(saved);
+      }
+      if (!cancelled) setPerfilLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!perfilLoaded) return;
+    savePerfilStorage(perfil);
+  }, [perfil, perfilLoaded]);
+
+  const setPerfil = useCallback((data) => {
+    setPerfilState((prev) => ({ ...prev, ...data }));
+  }, []);
+
+  const usuarios = useMemo(
+    () => [
+      { id: PRINCIPAL_ID, nome: perfil?.nomeCompleto || 'Principal', principal: true },
+      ...(usuariosOutros || []),
+    ],
+    [perfil, usuariosOutros]
+  );
+
+  const addCobrancaRecebida = useCallback((cobranca) => {
+    const id = `cob_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    setCobrancasRecebidas((prev) => [...prev, { ...cobranca, id, importedAt: new Date().toISOString() }]);
+    return id;
+  }, []);
 
   const addConta = useCallback((conta) => {
     setContas((prev) => [...prev, {
@@ -578,35 +664,29 @@ export function AppProvider({ children }) {
     );
   }, []);
 
-  const getPrincipalUserId = useCallback(() => {
-    const p = usuarios.find((u) => u.principal === true);
-    return p ? p.id : null;
-  }, [usuarios]);
+  const getPrincipalUserId = useCallback(() => PRINCIPAL_ID, []);
 
-  const addUser = useCallback((nome) => {
-    const principalId = getPrincipalUserId();
+  const addUser = useCallback((nome, cpf) => {
+    const id = Date.now().toString();
+    const cpfDigits = cpf ? String(cpf).replace(/\D/g, '').slice(0, 11) : undefined;
     const novo = {
-      id: Date.now().toString(),
+      id,
       nome: (nome || '').trim() || 'Usuário',
-      principal: !principalId,
+      cpf: cpfDigits,
     };
-    setUsuariosState((prev) => [...prev, novo]);
-    return novo.id;
-  }, [getPrincipalUserId]);
+    setUsuariosOutros((prev) => [...prev, novo]);
+    return id;
+  }, []);
 
   const updateUser = useCallback((id, payload) => {
-    setUsuariosState((prev) => prev.map((u) => (u.id === id ? { ...u, ...payload } : u)));
+    setUsuariosOutros((prev) => prev.map((u) => (u.id === id ? { ...u, ...payload } : u)));
   }, []);
 
   const removeUser = useCallback((id) => {
-    setUsuariosState((prev) => prev.filter((u) => u.id !== id));
+    setUsuariosOutros((prev) => prev.filter((u) => u.id !== id));
   }, []);
 
-  const setPrincipalUser = useCallback((id) => {
-    setUsuariosState((prev) =>
-      prev.map((u) => ({ ...u, principal: u.id === id }))
-    );
-  }, []);
+  const setPrincipalUser = useCallback(() => {}, []);
 
   /** Parte do valor da despesa que cabe ao usuário principal (para divisão). Sem divisão retorna o valor total. */
   const getValorPartePrincipal = useCallback((transacao) => {
@@ -641,6 +721,11 @@ export function AppProvider({ children }) {
     return recebimentosDeUsuarios
       .filter((r) => r.userId === userId)
       .reduce((s, r) => s + (r.valor || 0), 0);
+  }, [recebimentosDeUsuarios]);
+
+  /** Lista de recebimentos já registrados do usuário userId (para compartilhar no pacote de cobrança). */
+  const getRecebimentosDeUsuario = useCallback((userId) => {
+    return (recebimentosDeUsuarios || []).filter((r) => r.userId === userId);
   }, [recebimentosDeUsuarios]);
 
   /** Valor que ainda falta receber do usuário userId (deve - já recebido). */
@@ -717,7 +802,7 @@ export function AppProvider({ children }) {
       });
   }, [transacoes]);
 
-  /** Substitui todos os dados pelos importados (ex.: de CSV). parsed = { contas, cartoes, transacoes, objetivos, financiamentos, orcamentoMensal } */
+  /** Substitui todos os dados pelos importados (CSV ou backup JSON). parsed pode incluir perfil, usuarios, recebimentosUsuarios. */
   const importReplaceAll = useCallback((parsed) => {
     if (parsed.contas != null && Array.isArray(parsed.contas) && parsed.contas.length > 0) {
       setContas(parsed.contas);
@@ -736,6 +821,15 @@ export function AppProvider({ children }) {
     }
     if (parsed.orcamentoMensal != null && typeof parsed.orcamentoMensal === 'object') {
       setOrcamentoMensalState((prev) => ({ ...prev, ...parsed.orcamentoMensal }));
+    }
+    if (parsed.recebimentosUsuarios != null && Array.isArray(parsed.recebimentosUsuarios)) {
+      setRecebimentosDeUsuarios(parsed.recebimentosUsuarios);
+    }
+    if (parsed.usuarios != null && Array.isArray(parsed.usuarios)) {
+      setUsuariosOutros(parsed.usuarios.filter((u) => u.id !== PRINCIPAL_ID && !u.principal));
+    }
+    if (parsed.perfil != null && typeof parsed.perfil === 'object') {
+      setPerfilState(parsed.perfil);
     }
   }, []);
 
@@ -827,6 +921,12 @@ export function AppProvider({ children }) {
     getTotalAReceberRestante,
     addRecebimento,
     getDespesasComParteDoUsuario,
+    getRecebimentosDeUsuario,
+    cobrancasRecebidas,
+    addCobrancaRecebida,
+    perfil,
+    setPerfil,
+    resetAllData,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

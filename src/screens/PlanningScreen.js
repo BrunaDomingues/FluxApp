@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     backgroundColor: colors.secondary,
     gap: spacing.xs,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.lg,
+    gap: spacing.xs,
   },
   navBtn: { padding: spacing.xs },
   monthTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   copiarBtnTextDisabled: {
-    color: colors.textMuted,
+    color: colors.textMuted2,
     opacity: 0.8,
   },
   definirLink: {

@@ -10,6 +10,23 @@ const KEY_TRANSACOES = '@fluxapp_transacoes';
 const KEY_ORCAMENTO_MENSAL = '@fluxapp_orcamento_mensal';
 const KEY_USUARIOS = '@fluxapp_usuarios';
 const KEY_RECEBIMENTOS_USUARIOS = '@fluxapp_recebimentos_usuarios';
+const KEY_COBRANCAS_RECEBIDAS = '@fluxapp_cobrancas_recebidas';
+const KEY_PERFIL = '@fluxapp_perfil';
+
+const ALL_KEYS = [
+  KEY_CATEGORIAS,
+  KEY_CARDS_TELA_INICIAL,
+  KEY_FINANCIAMENTOS,
+  KEY_OBJETIVOS,
+  KEY_CONTAS,
+  KEY_CARTOES,
+  KEY_TRANSACOES,
+  KEY_ORCAMENTO_MENSAL,
+  KEY_USUARIOS,
+  KEY_RECEBIMENTOS_USUARIOS,
+  KEY_COBRANCAS_RECEBIDAS,
+  KEY_PERFIL,
+];
 
 export async function loadCategorias() {
   try {
@@ -220,5 +237,55 @@ export async function saveRecebimentosUsuarios(recebimentos) {
     await AsyncStorage.setItem(KEY_RECEBIMENTOS_USUARIOS, JSON.stringify(recebimentos || []));
   } catch (e) {
     console.warn('saveRecebimentosUsuarios:', e);
+  }
+}
+
+export async function loadCobrancasRecebidas() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY_COBRANCAS_RECEBIDAS);
+    if (raw) {
+      const data = JSON.parse(raw);
+      return Array.isArray(data) ? data : [];
+    }
+  } catch (e) {
+    console.warn('loadCobrancasRecebidas:', e);
+  }
+  return [];
+}
+
+export async function saveCobrancasRecebidas(cobrancas) {
+  try {
+    await AsyncStorage.setItem(KEY_COBRANCAS_RECEBIDAS, JSON.stringify(cobrancas || []));
+  } catch (e) {
+    console.warn('saveCobrancasRecebidas:', e);
+  }
+}
+
+export async function loadPerfil() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY_PERFIL);
+    if (raw) {
+      const data = JSON.parse(raw);
+      return data && typeof data === 'object' ? data : null;
+    }
+  } catch (e) {
+    console.warn('loadPerfil:', e);
+  }
+  return null;
+}
+
+export async function savePerfil(perfil) {
+  try {
+    await AsyncStorage.setItem(KEY_PERFIL, JSON.stringify(perfil || {}));
+  } catch (e) {
+    console.warn('savePerfil:', e);
+  }
+}
+
+export async function clearAllFluxAppData() {
+  try {
+    await AsyncStorage.multiRemove(ALL_KEYS);
+  } catch (e) {
+    console.warn('clearAllFluxAppData:', e);
   }
 }

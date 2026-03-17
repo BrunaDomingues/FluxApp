@@ -34,6 +34,8 @@ import AddObjetivoScreen from './src/screens/AddObjetivoScreen';
 import ExportImportScreen from './src/screens/ExportImportScreen';
 import UsuariosScreen from './src/screens/UsuariosScreen';
 import CobrancaUsuarioScreen from './src/screens/CobrancaUsuarioScreen';
+import CobrancasRecebidasScreen from './src/screens/CobrancasRecebidasScreen';
+import PerfilScreen from './src/screens/PerfilScreen';
 import { colors } from './src/constants/theme';
 
 const Stack = createStackNavigator();
@@ -93,6 +95,8 @@ export default function App() {
             <Stack.Screen name="ExportImport" component={ExportImportScreen} />
             <Stack.Screen name="Usuarios" component={UsuariosScreen} />
             <Stack.Screen name="CobrancaUsuario" component={CobrancaUsuarioScreen} />
+            <Stack.Screen name="CobrancasRecebidas" component={CobrancasRecebidasScreen} />
+            <Stack.Screen name="Perfil" component={PerfilScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </AppProvider>

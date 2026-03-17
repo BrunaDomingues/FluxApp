@@ -1,0 +1,31 @@
+// Schema de referência para o FluxApp.
+// O app usa expo-sqlite no dispositivo (src/db/index.js).
+// Use este schema com Prisma em um backend Node (ex.: API) com SQLite ou outro provider.
+// Para gerar o client: npx prisma generate
+// Para migrar: npx prisma migrate dev
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./fluxapp.db"
+}
+
+model Perfil {
+  id           Int     @id @default(1)
+  nome_completo String?
+  cpf          String?
+}
+
+model Usuario {
+  id   String @id
+  nome String
+  cpf  String?
+}
+
+model Kv {
+  key   String @id
+  value String
+}

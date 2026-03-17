@@ -16,10 +16,12 @@ import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { maskDateInput } from '../utils/dateMask';
+import { buildCobrancaPayload } from '../utils/exportImport';
 
 let captureRef;
 let Sharing;
 let Clipboard;
+let FileSystem;
 try {
   captureRef = require('react-native-view-shot').captureRef;
 } catch (_) {}
@@ -29,15 +31,20 @@ try {
 try {
   Clipboard = require('expo-clipboard');
 } catch (_) {}
+try {
+  FileSystem = require('expo-file-system').default;
+} catch (_) {}
 
 export default function CobrancaUsuarioScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const {
     usuarios,
+    perfil,
     getPrincipalUserId,
     getDespesasComParteDoUsuario,
     getValorAReceberDeUsuario,
     getValorAReceberRestanteDeUsuario,
+    getRecebimentosDeUsuario,
     addRecebimento,
   } = useApp();
   const [userId, setUserId] = useState(null);
@@ -159,6 +166,61 @@ export default function CobrancaUsuarioScreen({ navigation, route }) {
     } catch (e) {
       if (e.message !== 'User did not share') setMsg('Erro: ' + (e.message || String(e)));
     }
+  };
+
+  /** Compartilha dados da cobrança para o outro usuário importar no app (Mais → Importar cobrança recebida). */
+  const handleCompartilharDadosApp = async () => {
+    if (!userId || !usuarioSelecionado) {
+      setMsg('Selecione um usuário.');
+      return;
+    }
+    const principal = (usuarios || []).find((u) => u.principal);
+    if (!principal) {
+      setMsg('Usuário principal não encontrado.');
+      return;
+    }
+    if (!usuarioSelecionado.cpf) {
+      setMsg('Cadastre o CPF desse usuário em Mais → Usuários → Editar. Assim só ele conseguirá importar a cobrança no app.');
+      return;
+    }
+    setLoading(true);
+    setMsg(null);
+    try {
+      const payload = buildCobrancaPayload({
+        fromUser: {
+          id: principal.id,
+          nome: principal.nome || perfil?.nomeCompleto || 'Principal',
+          cpf: perfil?.cpf,
+        },
+        toUser: {
+          id: usuarioSelecionado.id,
+          nome: usuarioSelecionado.nome || 'Usuário',
+          cpf: usuarioSelecionado.cpf,
+        },
+        despesas: despesasDoUsuario,
+        recebimentos: getRecebimentosDeUsuario ? getRecebimentosDeUsuario(userId) : [],
+        totalAReceber,
+      });
+      const fileName = `FluxApp_cobranca_${usuarioSelecionado.nome || 'usuario'}_${new Date().toISOString().slice(0, 10)}.json`;
+      if (FileSystem && Sharing && (await Sharing.isAvailableAsync())) {
+        const path = `${FileSystem.cacheDirectory}${fileName}`;
+        await FileSystem.writeAsStringAsync(path, payload, { encoding: FileSystem.EncodingType.UTF8 });
+        await Sharing.shareAsync(path, {
+          mimeType: 'application/json',
+          dialogTitle: 'Compartilhar dados da cobrança',
+        });
+        setMsg('Envie o arquivo para a pessoa. Ela abre no app em Mais → Importar dados → Importar cobrança recebida.');
+      } else {
+        await Share.share({
+          message: payload,
+          title: fileName,
+        });
+        setMsg('Cole o conteúdo no app da outra pessoa em Mais → Importar dados → Importar cobrança recebida.');
+      }
+    } catch (e) {
+      setMsg('Erro ao gerar: ' + (e.message || String(e)));
+    }
+    setLoading(false);
   };
 
   const aReceberRestante = userId ? (getValorAReceberRestanteDeUsuario?.(userId) ?? 0) : 0;
@@ -396,6 +458,25 @@ export default function CobrancaUsuarioScreen({ navigation, route }) {
                 <Text style={styles.btnTextoText}>Enviar texto (WhatsApp etc.)</Text>
               </TouchableOpacity>
             </View>
+            <TouchableOpacity
+              style={[styles.btnImagem, { marginTop: spacing.sm, backgroundColor: colors.secondary }]}
+              onPress={handleCompartilharDadosApp}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="phone-portrait-outline" size={22} color="#fff" />
+                  <Text style={[styles.btnImagemText, { color: '#fff' }]}>
+                    Compartilhar dados para importar no app
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <Text style={styles.btnTextHint}>
+              A outra pessoa pode abrir o arquivo no FluxApp em Mais → Importar dados → Importar cobrança recebida.
+            </Text>
             {usuariosComRestante.length > 0 && (
               <TouchableOpacity
                 style={[styles.btnImagem, { backgroundColor: colors.positive, marginTop: spacing.sm }]}

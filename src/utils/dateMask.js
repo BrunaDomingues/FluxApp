@@ -46,3 +46,19 @@ export function parseDateDDMM(str) {
   if (isNaN(year) || year < 1900 || year > 2100) return null;
   return { day, month, year };
 }
+
+/** Máscara CPF: 000.000.000-00 (até 11 dígitos). */
+export function maskCpfInput(text) {
+  const digits = (text || '').replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return digits.slice(0, 3) + '.' + digits.slice(3);
+  if (digits.length <= 9) return digits.slice(0, 3) + '.' + digits.slice(3, 6) + '.' + digits.slice(6);
+  return digits.slice(0, 3) + '.' + digits.slice(3, 6) + '.' + digits.slice(6, 9) + '-' + digits.slice(9);
+}
+
+/** Retorna só os 11 dígitos do CPF para comparação/armazenamento. */
+export function normalizeCpf(str) {
+  if (str == null) return '';
+  const digits = String(str).replace(/\D/g, '').slice(0, 11);
+  return digits.length === 11 ? digits : String(str).replace(/\D/g, '');
+}

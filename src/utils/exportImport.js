@@ -278,3 +278,94 @@ export function parseCSVToData(text) {
   }
   return result;
 }
+
+/** Pacote para compartilhar cobrança com outro usuário que tem o app. */
+export const COBRANCA_PAYLOAD_TYPE = 'fluxapp_cobranca';
+export const COBRANCA_PAYLOAD_VERSION = 1;
+
+/**
+ * Monta o objeto de cobrança para exportar (compartilhar).
+ * @param {{ fromUser: { id: string, nome: string }, toUser: { id: string, nome: string }, despesas: Array<{ transacao: object, valorParte: number, porcentagem: number }>, recebimentos: Array<{ valor: number, data: string, ... }>, totalAReceber: number }} data
+ */
+export function buildCobrancaPayload(data) {
+  const fromUser = data.fromUser || { id: '', nome: '' };
+  const toUser = data.toUser || { id: '', nome: '' };
+  const payload = {
+    type: COBRANCA_PAYLOAD_TYPE,
+    version: COBRANCA_PAYLOAD_VERSION,
+    fromUser: { ...fromUser, cpf: fromUser.cpf != null ? String(fromUser.cpf).replace(/\D/g, '').slice(0, 11) : undefined },
+    toUser: { ...toUser, cpf: toUser.cpf != null ? String(toUser.cpf).replace(/\D/g, '').slice(0, 11) : undefined },
+    despesas: (data.despesas || []).map((d) => ({
+      transacao: d.transacao,
+      valorParte: d.valorParte,
+      porcentagem: d.porcentagem,
+    })),
+    recebimentos: data.recebimentos || [],
+    totalAReceber: data.totalAReceber ?? 0,
+    generatedAt: new Date().toISOString(),
+  };
+  return JSON.stringify(payload, null, 2);
+}
+
+/**
+ * Valida e parseia um JSON de cobrança recebida.
+ * @returns { { fromUser: { id: string, nome: string }, toUser: { id: string, nome: string }, despesas: Array, recebimentos: Array, totalAReceber: number, generatedAt: string } | null }
+ */
+export function parseCobrancaPayload(jsonString) {
+  try {
+    const data = JSON.parse(jsonString);
+    if (data.type !== COBRANCA_PAYLOAD_TYPE || !data.fromUser || !data.fromUser.nome) return null;
+    return {
+      fromUser: data.fromUser,
+      toUser: data.toUser || { id: '', nome: '' },
+      despesas: Array.isArray(data.despesas) ? data.despesas : [],
+      recebimentos: Array.isArray(data.recebimentos) ? data.recebimentos : [],
+      totalAReceber: typeof data.totalAReceber === 'number' ? data.totalAReceber : 0,
+      generatedAt: data.generatedAt || new Date().toISOString(),
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Backup completo para sincronizar por Bluetooth ou restaurar em outro aparelho. */
+export const BACKUP_PAYLOAD_TYPE = 'fluxapp_backup';
+export const BACKUP_PAYLOAD_VERSION = 1;
+
+export function buildBackupPayload(data) {
+  const payload = {
+    type: BACKUP_PAYLOAD_TYPE,
+    version: BACKUP_PAYLOAD_VERSION,
+    contas: data.contas || [],
+    cartoes: data.cartoes || [],
+    transacoes: data.transacoes || [],
+    objetivos: data.objetivos || [],
+    financiamentos: data.financiamentos || [],
+    orcamentoMensal: data.orcamentoMensal || {},
+    recebimentosUsuarios: data.recebimentosUsuarios || [],
+    usuarios: data.usuarios || [],
+    perfil: data.perfil || null,
+    generatedAt: new Date().toISOString(),
+  };
+  return JSON.stringify(payload, null, 0);
+}
+
+export function parseBackupPayload(jsonString) {
+  try {
+    const data = JSON.parse(jsonString);
+    if (data.type !== BACKUP_PAYLOAD_TYPE) return null;
+    return {
+      contas: Array.isArray(data.contas) ? data.contas : [],
+      cartoes: Array.isArray(data.cartoes) ? data.cartoes : [],
+      transacoes: Array.isArray(data.transacoes) ? data.transacoes : [],
+      objetivos: Array.isArray(data.objetivos) ? data.objetivos : [],
+      financiamentos: Array.isArray(data.financiamentos) ? data.financiamentos : [],
+      orcamentoMensal: data.orcamentoMensal && typeof data.orcamentoMensal === 'object' ? data.orcamentoMensal : {},
+      recebimentosUsuarios: Array.isArray(data.recebimentosUsuarios) ? data.recebimentosUsuarios : [],
+      usuarios: Array.isArray(data.usuarios) ? data.usuarios : [],
+      perfil: data.perfil && typeof data.perfil === 'object' ? data.perfil : null,
+    };
+  } catch (_) {
+    return null;
+  }
+}

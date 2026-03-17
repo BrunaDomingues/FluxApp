@@ -14,30 +14,34 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { maskCpfInput } from '../utils/dateMask';
 
 export default function UsuariosScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { usuarios, addUser, updateUser, removeUser, setPrincipalUser, getPrincipalUserId } = useApp();
+  const { usuarios, addUser, updateUser, removeUser } = useApp();
   const [modalVisible, setModalVisible] = useState(false);
   const [editarId, setEditarId] = useState(null);
   const [nomeInput, setNomeInput] = useState('');
+  const [cpfInput, setCpfInput] = useState('');
 
-  const principalId = getPrincipalUserId();
-  const usuariosOrdenados = [...(usuarios || [])].sort((a, b) => {
-    if (a.principal) return -1;
-    if (b.principal) return 1;
-    return (a.nome || '').localeCompare(b.nome || '');
-  });
+  const listaParaDividir = (usuarios || []).filter((u) => !u.principal);
+  const usuariosOrdenados = [...listaParaDividir].sort((a, b) =>
+    (a.nome || '').localeCompare(b.nome || '')
+  );
+
+  const editarUsuario = editarId ? listaParaDividir.find((u) => u.id === editarId) : null;
 
   const handleAbrirAdd = () => {
     setEditarId(null);
     setNomeInput('');
+    setCpfInput('');
     setModalVisible(true);
   };
 
   const handleAbrirEdit = (u) => {
     setEditarId(u.id);
     setNomeInput(u.nome || '');
+    setCpfInput(u.cpf ? maskCpfInput(u.cpf) : '');
     setModalVisible(true);
   };
 
@@ -47,19 +51,16 @@ export default function UsuariosScreen({ navigation }) {
       Alert.alert('Atenção', 'Informe o nome.');
       return;
     }
+    const cpfDigits = (cpfInput || '').replace(/\D/g, '').slice(0, 11);
     if (editarId) {
-      updateUser(editarId, { nome });
+      updateUser(editarId, { nome, cpf: cpfDigits || undefined });
     } else {
-      addUser(nome);
+      addUser(nome, cpfDigits || undefined);
     }
     setModalVisible(false);
   };
 
   const handleExcluir = (u) => {
-    if (u.principal) {
-      Alert.alert('Atenção', 'Não é possível excluir o usuário principal.');
-      return;
-    }
     Alert.alert(
       'Excluir usuário',
       `Excluir "${u.nome}"? As divisões de despesas que incluíam essa pessoa continuarão com os outros participantes.`,
@@ -68,11 +69,6 @@ export default function UsuariosScreen({ navigation }) {
         { text: 'Excluir', style: 'destructive', onPress: () => removeUser(u.id) },
       ]
     );
-  };
-
-  const handleDefinirPrincipal = (u) => {
-    if (u.principal) return;
-    setPrincipalUser(u.id);
   };
 
   return (
@@ -89,47 +85,33 @@ export default function UsuariosScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.subtitle}>
-          Use para dividir despesas em grupo. O usuário principal é você; os outros podem receber um resumo de cobrança.
+          Você é sempre o principal (Meu perfil). Adicione aqui só as pessoas com quem divide despesas.
         </Text>
-        {(usuarios || []).length === 0 ? (
+        {usuariosOrdenados.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="people-outline" size={48} color={colors.textMuted} />
-            <Text style={styles.emptyText}>Nenhum usuário cadastrado.</Text>
-            <Text style={styles.emptySub}>Adicione você como principal e depois as pessoas com quem divide despesas.</Text>
+            <Text style={styles.emptyText}>Ninguém na lista ainda</Text>
+            <Text style={styles.emptySub}>Toque em Adicionar usuário para incluir quem divide despesas com você.</Text>
           </View>
         ) : (
           <View style={styles.card}>
             {usuariosOrdenados.map((u) => (
               <View key={u.id} style={styles.row}>
                 <View style={styles.rowLeft}>
-                  <View style={[styles.avatar, u.principal && styles.avatarPrincipal]}>
-                    <Ionicons name="person" size={22} color={u.principal ? colors.primary : colors.textMuted} />
+                  <View style={styles.avatar}>
+                    <Ionicons name="person" size={22} color={colors.textMuted} />
                   </View>
                   <View style={styles.rowLeftText}>
                     <Text style={styles.nome}>{u.nome || 'Sem nome'}</Text>
-                    {u.principal && (
-                      <Text style={styles.badgePrincipal}>Principal (você)</Text>
-                    )}
-                    {!u.principal && (
-                      <TouchableOpacity
-                        style={styles.actionBtn}
-                        onPress={() => handleDefinirPrincipal(u)}
-                      >
-                        <Ionicons name="star-outline" size={16} color={colors.textMuted} />
-                        <Text style={styles.actionBtnText}>Definir como principal</Text>
-                      </TouchableOpacity>
-                    )}
                   </View>
                 </View>
                 <View style={styles.rowActions}>
                   <TouchableOpacity style={styles.iconBtn} onPress={() => handleAbrirEdit(u)}>
                     <Ionicons name="pencil-outline" size={20} color={colors.textMuted} />
                   </TouchableOpacity>
-                  {!u.principal && (
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => handleExcluir(u)}>
-                      <Ionicons name="trash-outline" size={20} color={colors.spending} />
-                    </TouchableOpacity>
-                  )}
+                  <TouchableOpacity style={styles.iconBtn} onPress={() => handleExcluir(u)}>
+                    <Ionicons name="trash-outline" size={20} color={colors.spending} />
+                  </TouchableOpacity>
                 </View>
               </View>
             ))}
@@ -139,7 +121,7 @@ export default function UsuariosScreen({ navigation }) {
           <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
           <Text style={styles.addBtnText}>Adicionar usuário</Text>
         </TouchableOpacity>
-        {(usuarios || []).length > 0 && (
+        {listaParaDividir.length > 0 && (
           <>
             <TouchableOpacity
               style={styles.cobrancaBtn}
@@ -173,6 +155,16 @@ export default function UsuariosScreen({ navigation }) {
               value={nomeInput}
               onChangeText={setNomeInput}
               autoFocus
+            />
+            <Text style={styles.label}>CPF (para validar cobrança no app dessa pessoa)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="000.000.000-00"
+              placeholderTextColor={colors.textMuted}
+              value={cpfInput}
+              onChangeText={(t) => setCpfInput(maskCpfInput(t))}
+              keyboardType="numeric"
+              maxLength={14}
             />
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setModalVisible(false)}>
@@ -295,6 +287,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.md },
   label: { fontSize: 14, color: colors.textMuted, marginBottom: spacing.xs },
+  perfilHint: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.md },
   input: {
     backgroundColor: colors.background,
     borderRadius: borderRadius.md,
