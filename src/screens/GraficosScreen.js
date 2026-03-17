@@ -34,31 +34,71 @@ function getDateObj(t) {
   return new Date(ano, mes, day);
 }
 
-function SimpleLineChart({ data, color = colors.primary }) {
+function SimpleLineChart({ data, color = colors.primary, showXTicks = false }) {
   const W = Math.min(360, Math.floor(Dimensions.get('window').width - spacing.lg * 2));
-  const H = 180;
+  const H = 190;
   const P = 16;
-  const max = Math.max(1, ...data.map((d) => d.value));
-  const min = Math.min(0, ...data.map((d) => d.value));
+  const max = Math.max(0, ...data.map((d) => d.value));
+  const min = 0;
   const range = Math.max(1, max - min);
 
-  const points = data
+  const pts = data
     .map((d, i) => {
       const x = P + (i * (W - P * 2)) / Math.max(1, data.length - 1);
-      const y = P + ((max - d.value) * (H - P * 2)) / range;
-      return `${x},${y}`;
-    })
-    .join(' ');
+      const y = P + ((max - (d.value || 0)) * (H - P * 2)) / range;
+      return { x, y };
+    });
+  const points = pts.map((p) => `${p.x},${p.y}`).join(' ');
+  const areaPoints = `${P},${H - P} ${points} ${W - P},${H - P}`;
+
+  const gridLines = 4;
+  const ticks = Array.from({ length: gridLines + 1 }, (_, i) => {
+    const y = P + (i * (H - P * 2)) / gridLines;
+    const val = Math.round((max - (i * range) / gridLines) / 10) * 10;
+    return { y, val: Math.max(0, val) };
+  });
 
   return (
     <Svg width={W} height={H}>
-      <Line x1={P} y1={H - P} x2={W - P} y2={H - P} stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+      {/* Grid */}
+      {ticks.map((t, i) => (
+        <Line
+          key={`g-${i}`}
+          x1={P}
+          y1={t.y}
+          x2={W - P}
+          y2={t.y}
+          stroke="rgba(255,255,255,0.10)"
+          strokeWidth="1"
+        />
+      ))}
+      <Line x1={P} y1={H - P} x2={W - P} y2={H - P} stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
+
+      {/* Area */}
+      <Polyline points={areaPoints} fill={color + '33'} stroke="none" />
+      {/* Line */}
       <Polyline points={points} fill="none" stroke={color} strokeWidth="3" />
-      {data.map((d, i) => {
-        const x = P + (i * (W - P * 2)) / Math.max(1, data.length - 1);
-        const y = P + ((max - d.value) * (H - P * 2)) / range;
-        return <SvgCircle key={i} cx={x} cy={y} r="4" fill={color} />;
-      })}
+      {/* Dots */}
+      {pts.map((p, i) => (
+        <SvgCircle key={i} cx={p.x} cy={p.y} r="3.5" fill={color} />
+      ))}
+
+      {/* X ticks (opcional, poucos) */}
+      {showXTicks && data.length >= 4 && (
+        <>
+          {[0, Math.floor((data.length - 1) / 2), data.length - 1].map((idx) => (
+            <Line
+              key={`xt-${idx}`}
+              x1={pts[idx].x}
+              y1={H - P}
+              x2={pts[idx].x}
+              y2={H - P + 6}
+              stroke="rgba(255,255,255,0.18)"
+              strokeWidth="1"
+            />
+          ))}
+        </>
+      )}
     </Svg>
   );
 }
@@ -98,6 +138,7 @@ export default function GraficosScreen({ navigation }) {
   const now = new Date();
   const [mode, setMode] = useState('pie'); // pie | line | bar
   const [barFilter, setBarFilter] = useState('balancoMensal'); // balancoMensal | fluxoAnual | despesaDiaSemana
+  const [lineFilter, setLineFilter] = useState('mes'); // semana | mes | ano
   const [mes, setMes] = useState(now.getMonth());
   const [ano, setAno] = useState(now.getFullYear());
 
@@ -136,6 +177,42 @@ export default function GraficosScreen({ navigation }) {
     });
     return byDay;
   }, [transacoesNoMes, ano, mes, getValorPartePrincipal]);
+
+  const lineDespesasSemana = useMemo(() => {
+    // Últimos 7 dias (inclui hoje), somente despesas
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(hoje);
+      d.setDate(hoje.getDate() - i);
+      days.push({ date: d, label: WEEKDAYS[d.getDay()], value: 0 });
+    }
+    (transacoes || []).forEach((t) => {
+      if (t.tipo !== 'saida' && t.tipo !== 'despesa_cartao') return;
+      const dt = getDateObj(t);
+      dt.setHours(0, 0, 0, 0);
+      const idx = days.findIndex((x) => x.date.getTime() === dt.getTime());
+      if (idx >= 0) {
+        const v = getValorPartePrincipal ? getValorPartePrincipal(t) : Math.abs(t.valor || 0);
+        days[idx].value += v;
+      }
+    });
+    return days.map((d) => ({ label: d.label, value: d.value }));
+  }, [transacoes, getValorPartePrincipal]);
+
+  const lineDespesasAno = useMemo(() => {
+    // 12 meses do ano selecionado, somente despesas
+    const byMonth = MESES_SHORT.map((mLabel, m) => ({ label: mLabel, value: 0 }));
+    (transacoes || []).forEach((t) => {
+      if (t.tipo !== 'saida' && t.tipo !== 'despesa_cartao') return;
+      if (getYearRef(t) !== ano) return;
+      const m = getMonthRef(t);
+      const v = getValorPartePrincipal ? getValorPartePrincipal(t) : Math.abs(t.valor || 0);
+      if (m != null && byMonth[m]) byMonth[m].value += v;
+    });
+    return byMonth;
+  }, [transacoes, ano, getValorPartePrincipal]);
 
   const barBalancoMensal = useMemo(() => {
     // Últimos 3 meses (inclui mes/ano atual do seletor)
@@ -213,7 +290,17 @@ export default function GraficosScreen({ navigation }) {
     let footer = null;
 
     if (barFilter === 'balancoMensal') {
-      chart = (
+      const total = barBalancoMensal.receitas.reduce((s, d) => s + (d.value || 0), 0)
+        + barBalancoMensal.despesas.reduce((s, d) => s + (d.value || 0), 0);
+      if (total <= 0) {
+        chart = (
+          <View style={styles.emptyChart}>
+            <Text style={styles.emptyChartTitle}>Sem transações</Text>
+            <Text style={styles.emptyChartSub}>Quando você registrar despesas, o gráfico aparecerá aqui.</Text>
+          </View>
+        );
+      } else {
+        chart = (
         <>
           <SimpleBarChart data={barBalancoMensal.despesas} barColor={colors.spending} secondSeries={barBalancoMensal.receitas} secondColor={colors.positive} />
           <View style={styles.legendRow}>
@@ -223,14 +310,25 @@ export default function GraficosScreen({ navigation }) {
             <Text style={styles.legendText}>Despesas</Text>
           </View>
         </>
-      );
+        );
+      }
       footer = (
         <TouchableOpacity style={styles.detalharBtn} onPress={onDetalhar} activeOpacity={0.8}>
           <Text style={styles.detalharText}>Detalhar</Text>
         </TouchableOpacity>
       );
     } else if (barFilter === 'fluxoAnual') {
-      chart = (
+      const total = barFluxoAnual.receitas.reduce((s, d) => s + (d.value || 0), 0)
+        + barFluxoAnual.despesas.reduce((s, d) => s + (d.value || 0), 0);
+      if (total <= 0) {
+        chart = (
+          <View style={styles.emptyChart}>
+            <Text style={styles.emptyChartTitle}>Sem transações</Text>
+            <Text style={styles.emptyChartSub}>Quando você registrar despesas, o gráfico aparecerá aqui.</Text>
+          </View>
+        );
+      } else {
+        chart = (
         <>
           <SimpleBarChart data={barFluxoAnual.despesas} barColor={colors.spending} secondSeries={barFluxoAnual.receitas} secondColor={colors.positive} />
           <View style={styles.legendRow}>
@@ -240,9 +338,18 @@ export default function GraficosScreen({ navigation }) {
             <Text style={styles.legendText}>Despesas</Text>
           </View>
         </>
-      );
+        );
+      }
     } else {
-      chart = <SimpleBarChart data={barDespesaDiaSemana} barColor={colors.spending} />;
+      const total = barDespesaDiaSemana.reduce((s, d) => s + (d.value || 0), 0);
+      chart = total <= 0 ? (
+        <View style={styles.emptyChart}>
+          <Text style={styles.emptyChartTitle}>Sem transações</Text>
+          <Text style={styles.emptyChartSub}>Quando você registrar despesas, o gráfico aparecerá aqui.</Text>
+        </View>
+      ) : (
+        <SimpleBarChart data={barDespesaDiaSemana} barColor={colors.spending} />
+      );
     }
 
     return (
@@ -280,13 +387,13 @@ export default function GraficosScreen({ navigation }) {
 
       <View style={styles.modeTabs}>
         <TouchableOpacity style={[styles.modeTab, mode === 'pie' && styles.modeTabActive]} onPress={() => setMode('pie')}>
-          <Ionicons name="pie-chart-outline" size={20} color={mode === 'pie' ? colors.textPrimary : colors.textMuted} />
+          <Ionicons name="pie-chart-outline" size={20} color={mode === 'pie' ? colors.background : colors.textMuted} />
         </TouchableOpacity>
         <TouchableOpacity style={[styles.modeTab, mode === 'line' && styles.modeTabActive]} onPress={() => setMode('line')}>
-          <Ionicons name="pulse-outline" size={20} color={mode === 'line' ? colors.textPrimary : colors.textMuted} />
+          <Ionicons name="pulse-outline" size={20} color={mode === 'line' ? colors.background : colors.textMuted} />
         </TouchableOpacity>
         <TouchableOpacity style={[styles.modeTab, mode === 'bar' && styles.modeTabActive]} onPress={() => setMode('bar')}>
-          <Ionicons name="stats-chart-outline" size={20} color={mode === 'bar' ? colors.textPrimary : colors.textMuted} />
+          <Ionicons name="stats-chart-outline" size={20} color={mode === 'bar' ? colors.background : colors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -308,22 +415,70 @@ export default function GraficosScreen({ navigation }) {
                 <Text style={[styles.pillText, styles.pillTextActive]}>Despesas por categoria</Text>
               </View>
             </ScrollView>
-            <DonutChart data={despesasPorCategoria} />
+            {(() => {
+              const total = (despesasPorCategoria || []).reduce((s, d) => s + (d.value || 0), 0);
+              if (!despesasPorCategoria || despesasPorCategoria.length === 0 || total <= 0) {
+                return (
+                  <View style={styles.chartWrap}>
+                    <View style={styles.emptyChart}>
+                      <Text style={styles.emptyChartTitle}>Sem transações</Text>
+                      <Text style={styles.emptyChartSub}>Quando você registrar despesas, o gráfico aparecerá aqui.</Text>
+                    </View>
+                  </View>
+                );
+              }
+              return <DonutChart data={despesasPorCategoria} />;
+            })()}
           </>
         )}
 
         {mode === 'line' && (
           <>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRow}>
-              <View style={[styles.pill, styles.pillActive]}>
-                <Text style={[styles.pillText, styles.pillTextActive]}>Despesas do mês</Text>
-              </View>
+              <TouchableOpacity
+                style={[styles.pill, lineFilter === 'semana' && styles.pillActive]}
+                onPress={() => setLineFilter('semana')}
+              >
+                <Text style={[styles.pillText, lineFilter === 'semana' && styles.pillTextActive]}>Despesas da semana</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pill, lineFilter === 'mes' && styles.pillActive]}
+                onPress={() => setLineFilter('mes')}
+              >
+                <Text style={[styles.pillText, lineFilter === 'mes' && styles.pillTextActive]}>Despesas do mês</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pill, lineFilter === 'ano' && styles.pillActive]}
+                onPress={() => setLineFilter('ano')}
+              >
+                <Text style={[styles.pillText, lineFilter === 'ano' && styles.pillTextActive]}>Despesas do ano</Text>
+              </TouchableOpacity>
             </ScrollView>
             <View style={styles.chartWrap}>
-              <SimpleLineChart data={lineDespesasMes} color={colors.primary} />
-              <Text style={styles.totalText}>
-                Total R$ {lineDespesasMes.reduce((s, d) => s + d.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </Text>
+              {(() => {
+                const serie = lineFilter === 'semana'
+                  ? lineDespesasSemana
+                  : lineFilter === 'ano'
+                    ? lineDespesasAno
+                    : lineDespesasMes;
+                const total = serie.reduce((s, d) => s + (d.value || 0), 0);
+                if (!serie || serie.length === 0 || total <= 0) {
+                  return (
+                    <View style={styles.emptyChart}>
+                      <Text style={styles.emptyChartTitle}>Sem transações</Text>
+                      <Text style={styles.emptyChartSub}>Quando você registrar despesas, o gráfico aparecerá aqui.</Text>
+                    </View>
+                  );
+                }
+                return (
+                  <>
+                    <SimpleLineChart data={serie} color={colors.primary} showXTicks />
+                    <Text style={styles.totalText}>
+                      Total R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </Text>
+                  </>
+                );
+              })()}
             </View>
           </>
         )}
@@ -391,6 +546,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     alignItems: 'center',
   },
+  emptyChart: { paddingVertical: spacing.xl, alignItems: 'center' },
+  emptyChartTitle: { color: colors.textMuted, fontWeight: '800', fontSize: 16, marginBottom: spacing.xs },
+  emptyChartSub: { color: colors.textMuted, fontSize: 13, textAlign: 'center', maxWidth: 260 },
   totalText: { color: colors.textSecondary, marginTop: spacing.md, fontWeight: '700' },
   detalharBtn: { alignSelf: 'flex-end', marginTop: spacing.md },
   detalharText: { color: colors.secondary, fontWeight: '800' },
