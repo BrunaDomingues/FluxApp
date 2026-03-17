@@ -59,7 +59,13 @@ const CARDS_ORDER_DEFAULT = [
 ];
 
 export function AppProvider({ children }) {
-  const { user, getLinkedUsers, onRecebimentoFromUser } = useAuth();
+  const {
+    user,
+    getLinkedUsers,
+    onRecebimentoFromUser,
+    deleteUnpaidSharedExpensePartsByTransacao,
+    deleteAllUnpaidSharedExpensePartsAsOwner,
+  } = useAuth();
   const [supabaseFetchDone, setSupabaseFetchDone] = useState(false);
   const [hydratedFromSupabase, setHydratedFromSupabase] = useState(false);
   const [pendingSync, setPendingSync] = useState(false);
@@ -129,11 +135,13 @@ export function AppProvider({ children }) {
     setTransacoes([]);
     setContas(contaInicial);
     if (user?.id) {
+      // Se o usuário zerar os dados, remove do outro lado as partes NÃO pagas criadas por ele.
+      await deleteAllUnpaidSharedExpensePartsAsOwner?.();
       const { error } = await saveUserData(user.id, payloadZerado, { overwrite: true });
       if (error) return { error };
     }
     return {};
-  }, [user?.id]);
+  }, [user?.id, deleteAllUnpaidSharedExpensePartsAsOwner]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -923,6 +931,16 @@ export function AppProvider({ children }) {
     setTransacoes((prev) => {
       const t = prev.find((x) => x.id === id);
       if (!t) return prev;
+
+      // Se o dono apagou uma despesa compartilhada, remove as partes NÃO pagas do outro usuário.
+      if (
+        (t.tipo === 'saida' || t.tipo === 'despesa_cartao') &&
+        t.divisao?.partes?.some((p) => p.userId && p.userId !== user?.id) &&
+        user?.id
+      ) {
+        Promise.resolve().then(() => deleteUnpaidSharedExpensePartsByTransacao?.(t.id));
+      }
+
       let reverseDeltas = {};
       let idsToRemove = [id];
       if (t.transferenciaId) {
@@ -943,7 +961,7 @@ export function AppProvider({ children }) {
       );
       return prev.filter((x) => !idsSet.has(x.id));
     });
-  }, []);
+  }, [user?.id, deleteUnpaidSharedExpensePartsByTransacao]);
   const setOrcamentoMensal = useCallback((mes, ano, total, porCategoria) => {
     const key = `${ano}-${mes}`;
     setOrcamentoMensalState((prev) => ({ ...prev, [key]: { total: total || 0, categorias: porCategoria || {} } }));

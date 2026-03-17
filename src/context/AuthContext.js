@@ -458,6 +458,24 @@ export function AuthProvider({ children }) {
     return { error: error?.message ?? null };
   }, []);
 
+  /** Remove partes NÃO pagas dessa transação (quando o dono apagou a despesa). */
+  const deleteUnpaidSharedExpensePartsByTransacao = useCallback(async (transacaoId) => {
+    if (!isSupabaseConfigured || !transacaoId) return { error: null };
+    const { data, error } = await supabase.rpc('delete_unpaid_shared_expense_parts', { p_transacao_id: String(transacaoId) });
+    if (error) return { error: error.message };
+    if (data?.ok !== true) return { error: data?.error ?? 'Erro ao remover partes não pagas.' };
+    return { error: null };
+  }, []);
+
+  /** Remove TODAS as partes NÃO pagas criadas pelo usuário (usar ao zerar dados). */
+  const deleteAllUnpaidSharedExpensePartsAsOwner = useCallback(async () => {
+    if (!isSupabaseConfigured) return { error: null };
+    const { data, error } = await supabase.rpc('delete_all_unpaid_shared_expense_parts_as_owner');
+    if (error) return { error: error.message };
+    if (data?.ok !== true) return { error: data?.error ?? 'Erro ao remover partes não pagas.' };
+    return { error: null };
+  }, []);
+
   /** Lista despesas compartilhadas pendentes (que o usuário atual deve). */
   const getMyPendingSharedExpenses = useCallback(async () => {
     if (!isSupabaseConfigured) return { data: [], error: null };
@@ -559,6 +577,8 @@ export function AuthProvider({ children }) {
     unlinkUser,
     linkExistingUserByCpf,
     registerSharedExpenseParts,
+    deleteUnpaidSharedExpensePartsByTransacao,
+    deleteAllUnpaidSharedExpensePartsAsOwner,
     getMyPendingSharedExpenses,
     markSharedExpensePartPaid,
     getPaymentSignaledAwaitingConfirmation,
