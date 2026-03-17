@@ -38,6 +38,7 @@ export default function TransactionsScreen({ navigation, route }) {
     usuarios,
     getPrincipalUserId,
     getDespesasComParteDoUsuario,
+    togglePagoTransacao,
   } = useApp();
   const contaIdFromParams = route.params?.contaId ?? null;
   const filterTipoFromParams = route.params?.filterTipo ?? null;
@@ -168,6 +169,19 @@ export default function TransactionsScreen({ navigation, route }) {
                   </Text>
                   <Text style={styles.data}>{t.data || '—'}</Text>
                   {t.local ? <Text style={styles.local}>{t.local}</Text> : null}
+                  {(t.tipo === 'entrada' || t.tipo === 'saida') && (
+                    <View style={styles.statusRow}>
+                      <TouchableOpacity
+                        style={[styles.statusPill, (t.pago === false) && styles.statusPillPendente]}
+                        onPress={() => togglePagoTransacao?.(t.id)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.statusText, (t.pago === false) && styles.statusTextPendente]}>
+                          {t.pago === false ? 'Pendente' : 'Pago'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
                 <Text
                   style={[
@@ -355,6 +369,21 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
   },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+  statusPill: {
+    backgroundColor: colors.positive + '22',
+    borderWidth: 1,
+    borderColor: colors.positive + '55',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  statusPillPendente: {
+    backgroundColor: colors.spending + '22',
+    borderColor: colors.spending + '55',
+  },
+  statusText: { color: colors.positive, fontSize: 12, fontWeight: '700' },
+  statusTextPendente: { color: colors.spending },
   valor: {
     fontSize: 12,
     fontWeight: '700',

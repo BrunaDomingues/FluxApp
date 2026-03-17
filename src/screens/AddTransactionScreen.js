@@ -8,6 +8,7 @@ import {
   ScrollView,
   Modal,
   Pressable,
+  Switch,
 } from 'react-native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
@@ -18,6 +19,9 @@ import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/curren
 import { AppAlert } from '../components/AppAlert';
 import { maskDateInput, parseDateDDMM } from '../utils/dateMask';
 import { ICONE_PADRAO } from '../constants/categorias';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { generateOccurrences } from '../utils/recorrencia';
+import { scheduleTransactionReminder } from '../utils/lembretesTransacoes';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -61,6 +65,22 @@ export default function AddTransactionScreen({ navigation, route }) {
   const [porcentagens, setPorcentagens] = useState({});
   const [dataTransacao, setDataTransacao] = useState('');
   const [local, setLocal] = useState('');
+  const [txDatePickerOpen, setTxDatePickerOpen] = useState(false);
+  const [txPickerDate, setTxPickerDate] = useState(() => new Date());
+
+  const [fixa, setFixa] = useState(false);
+  const [pago, setPago] = useState(true);
+  const [repetir, setRepetir] = useState(false);
+  const [recFrequencia, setRecFrequencia] = useState('monthly'); // daily|weekly|monthly|yearly|custom
+  const [recIntervalo, setRecIntervalo] = useState('1');
+  const [recQuantidade, setRecQuantidade] = useState('12');
+  const [modalRecorrenciaVisible, setModalRecorrenciaVisible] = useState(false);
+
+  const [lembreteEnabled, setLembreteEnabled] = useState(false);
+  const [lembreteDate, setLembreteDate] = useState(() => new Date());
+  const [lembreteTime, setLembreteTime] = useState(() => new Date());
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerMode, setPickerMode] = useState('date'); // date | time
 
   const principalId = getPrincipalUserId();
   const outrosUsuarios = (usuarios || []).filter((u) => !u.principal);
@@ -120,6 +140,16 @@ export default function AddTransactionScreen({ navigation, route }) {
       setDataTransacao(d.length >= 10 ? d : d + '/' + (editar.ano ?? new Date().getFullYear()));
     }
     if (editar.local != null) setLocal(editar.local || '');
+    setFixa(editar.fixa === true);
+    setPago(editar.pago !== false);
+    if (editar.lembrete?.enabled && editar.lembrete?.datetime) {
+      setLembreteEnabled(true);
+      const dt = new Date(editar.lembrete.datetime);
+      if (!isNaN(dt.getTime())) {
+        setLembreteDate(dt);
+        setLembreteTime(dt);
+      }
+    }
   }, [editar?.id]);
 
   const getDataMesAno = () => {
@@ -153,7 +183,7 @@ export default function AddTransactionScreen({ navigation, route }) {
     };
   };
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
     if (valorNum <= 0) {
       AppAlert.alert('Atenção', 'Informe o valor.');
       return;
@@ -176,6 +206,26 @@ export default function AddTransactionScreen({ navigation, route }) {
         }
         const cat = categorias.find((c) => c.id === categoriaId);
         const { data, mes, ano } = getDataMesAno();
+
+        let lembretePatch;
+        if (lembreteEnabled) {
+          const when = new Date(
+            lembreteDate.getFullYear(),
+            lembreteDate.getMonth(),
+            lembreteDate.getDate(),
+            lembreteTime.getHours(),
+            lembreteTime.getMinutes(),
+            0,
+            0
+          );
+          const { notificationId } = await scheduleTransactionReminder({
+            title: 'FluxApp',
+            body: `Lembrete: ${descricao.trim() || cat?.nome || 'Transação'}`,
+            datetime: when,
+          });
+          lembretePatch = { enabled: true, datetime: when.toISOString(), notificationId: notificationId || editar.lembrete?.notificationId };
+        }
+
         updateTransacao(editar.id, {
           valor: tipo === 'entrada' ? valorNum : -valorNum,
           categoriaId: categoriaId || undefined,
@@ -188,6 +238,10 @@ export default function AddTransactionScreen({ navigation, route }) {
           mes,
           ano,
           local: local.trim() || undefined,
+          fixa: fixa || undefined,
+          pago: pago !== false,
+          vencimento: pago ? undefined : data,
+          lembrete: lembretePatch,
         });
       }
       navigation.goBack();
@@ -212,6 +266,10 @@ export default function AddTransactionScreen({ navigation, route }) {
     }
     if (!categoriaId) {
       AppAlert.alert('Atenção', 'Selecione uma categoria.');
+      return;
+    }
+    if (repetir && divisaoAtiva) {
+      AppAlert.alert('Atenção', 'Por enquanto não é possível repetir automaticamente uma despesa dividida.');
       return;
     }
     if (divisaoAtiva && tipoDivisao === 'porcentagem') {
@@ -245,8 +303,43 @@ export default function AddTransactionScreen({ navigation, route }) {
       mes,
       ano,
       local: local.trim() || undefined,
+      fixa: fixa || undefined,
+      pago: pago !== false,
+      vencimento: pago ? undefined : data,
     };
-    const nova = addTransacao(payload);
+
+    const addReminderIfNeeded = async (p) => {
+      if (!lembreteEnabled) return p;
+      const when = new Date(
+        lembreteDate.getFullYear(),
+        lembreteDate.getMonth(),
+        lembreteDate.getDate(),
+        lembreteTime.getHours(),
+        lembreteTime.getMinutes(),
+        0,
+        0
+      );
+      const { notificationId } = await scheduleTransactionReminder({
+        title: 'FluxApp',
+        body: `Lembrete: ${p.descricao || p.categoriaNome || 'Transação'}`,
+        datetime: when,
+      });
+      return { ...p, lembrete: { enabled: true, datetime: when.toISOString(), notificationId: notificationId || undefined } };
+    };
+
+    let nova = null;
+    if (repetir) {
+      const count = Math.max(1, parseInt(recQuantidade, 10) || 12);
+      const interval = Math.max(1, parseInt(recIntervalo, 10) || 1);
+      const { items } = generateOccurrences(payload, { frequency: recFrequencia, interval, count, startDate: data });
+      const first = await addReminderIfNeeded(items[0]);
+      addTransacao(first);
+      items.slice(1).forEach((it) => addTransacao(it));
+    } else {
+      const p = await addReminderIfNeeded(payload);
+      nova = addTransacao(p);
+    }
+
     if (nova?.divisao?.partes && user?.id && (nova.tipo === 'saida' || nova.tipo === 'despesa_cartao')) {
       const total = Math.abs(nova.valor || 0);
       const parts = nova.divisao.partes
@@ -310,14 +403,31 @@ export default function AddTransactionScreen({ navigation, route }) {
         {!isTransferencia && (
           <>
             <Text style={styles.label}>Data (opcional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="dd/mm/aaaa — vazio = hoje"
-              placeholderTextColor={colors.textMuted}
-              value={dataTransacao}
-              onChangeText={(text) => setDataTransacao(maskDateInput(text))}
-              keyboardType="numeric"
-            />
+            <View style={styles.dateRow}>
+              <TouchableOpacity
+                style={[styles.datePickerRow, { flex: 1 }]}
+                activeOpacity={0.8}
+                onPress={() => {
+                  const parsed = parseDateDDMM(String(dataTransacao || '').trim());
+                  setTxPickerDate(parsed ? new Date(parsed.year, parsed.month, parsed.day) : new Date());
+                  setTxDatePickerOpen(true);
+                }}
+              >
+                <Text style={styles.datePickerText}>
+                  {dataTransacao?.trim() ? dataTransacao.trim() : 'Selecionar data (vazio = hoje)'}
+                </Text>
+                <Ionicons name="calendar-outline" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+              {!!dataTransacao?.trim() && (
+                <TouchableOpacity
+                  style={styles.dateClearBtnIcon}
+                  onPress={() => setDataTransacao('')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="close-circle" size={22} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
             <Text style={styles.label}>Local (opcional)</Text>
             <TextInput
               style={styles.input}
@@ -326,6 +436,101 @@ export default function AddTransactionScreen({ navigation, route }) {
               value={local}
               onChangeText={setLocal}
             />
+
+            {/* Flags e recorrência */}
+            {!isCartao && !isTransferencia && (
+              <>
+                <View style={styles.switchRow}>
+                  <Text style={styles.switchLabel}>{tipo === 'entrada' ? 'Receita fixa' : 'Despesa fixa'}</Text>
+                  <Switch
+                    value={fixa}
+                    onValueChange={(v) => {
+                      setFixa(v);
+                      if (v) {
+                        // fixa não pode repetir nem ter lembrete
+                        setRepetir(false);
+                        setModalRecorrenciaVisible(false);
+                        setLembreteEnabled(false);
+                      }
+                    }}
+                  />
+                </View>
+                <View style={styles.switchRow}>
+                  <Text style={styles.switchLabel}>{tipo === 'entrada' ? 'Recebido' : 'Pago'}</Text>
+                  <Switch value={pago} onValueChange={setPago} />
+                </View>
+                <View style={styles.switchRow}>
+                  <Text style={styles.switchLabel}>Repetir</Text>
+                  <Switch
+                    value={repetir}
+                    onValueChange={(v) => {
+                      setRepetir(v);
+                      if (v) {
+                        // repetir desativa fixa e lembrete
+                        setFixa(false);
+                        setLembreteEnabled(false);
+                      }
+                      if (v) setModalRecorrenciaVisible(true);
+                    }}
+                  />
+                </View>
+                {repetir && (
+                  <TouchableOpacity
+                    style={styles.recSummaryRow}
+                    onPress={() => setModalRecorrenciaVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.recSummaryText}>
+                      {(() => {
+                        const each = Math.max(1, parseInt(recIntervalo, 10) || 1);
+                        const count = Math.max(1, parseInt(recQuantidade, 10) || 12);
+                        const unit = (() => {
+                          if (recFrequencia === 'yearly') return { s: 'ano', p: 'anos' };
+                          if (recFrequencia === 'monthly') return { s: 'mês', p: 'meses' };
+                          if (recFrequencia === 'weekly') return { s: 'semana', p: 'semanas' };
+                          return { s: 'dia', p: 'dias' }; // daily/custom
+                        })();
+                        const duration = each * count;
+                        const durationLabel = duration === 1 ? unit.s : unit.p;
+                        const eachLabel = each === 1 ? unit.s : unit.p;
+                        const tail = each > 1 ? ` • a cada ${each} ${eachLabel}` : '';
+                        return `Repetir por ${duration} ${durationLabel}${tail}`;
+                      })()}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                  </TouchableOpacity>
+                )}
+                {!repetir && !fixa && (
+                  <View style={styles.switchRow}>
+                    <Text style={styles.switchLabel}>Lembrar de pagar</Text>
+                    <Switch value={lembreteEnabled} onValueChange={setLembreteEnabled} />
+                  </View>
+                )}
+                {!repetir && !fixa && lembreteEnabled && (
+                  <>
+                    <View style={styles.reminderRow}>
+                      <TouchableOpacity
+                        style={styles.reminderBtn}
+                        onPress={() => { setPickerMode('date'); setPickerOpen(true); }}
+                      >
+                        <Ionicons name="calendar-outline" size={18} color={colors.textPrimary} />
+                        <Text style={styles.reminderBtnText}>Data</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.reminderBtn}
+                        onPress={() => { setPickerMode('time'); setPickerOpen(true); }}
+                      >
+                        <Ionicons name="time-outline" size={18} color={colors.textPrimary} />
+                        <Text style={styles.reminderBtnText}>Hora</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.reminderValue}>
+                      {lembreteDate.toLocaleDateString('pt-BR')} {lembreteTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </>
+                )}
+              </>
+            )}
           </>
         )}
         {isTransferencia && contasVisiveis.length >= 2 && (
@@ -643,6 +848,91 @@ export default function AddTransactionScreen({ navigation, route }) {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      {/* Modal de recorrência */}
+      <Modal visible={modalRecorrenciaVisible} transparent animationType="fade">
+        <Pressable style={styles.modalBackdrop} onPress={() => setModalRecorrenciaVisible(false)}>
+          <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Repetir transação</Text>
+            <Text style={styles.label}>Período</Text>
+            <View style={styles.optionsRow}>
+              {[
+                { k: 'daily', l: 'Diário' },
+                { k: 'weekly', l: 'Semanal' },
+                { k: 'monthly', l: 'Mensal' },
+                { k: 'yearly', l: 'Anual' },
+                { k: 'custom', l: 'Personalizado' },
+              ].map((o) => (
+                <TouchableOpacity
+                  key={o.k}
+                  style={[styles.optionChip, recFrequencia === o.k && styles.optionChipActive]}
+                  onPress={() => setRecFrequencia(o.k)}
+                >
+                  <Text style={[styles.optionChipText, recFrequencia === o.k && styles.optionChipTextActive]}>{o.l}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.label}>A cada</Text>
+            <TextInput
+              style={styles.input}
+              value={recIntervalo}
+              onChangeText={setRecIntervalo}
+              keyboardType="number-pad"
+              placeholder="1"
+              placeholderTextColor={colors.textMuted}
+            />
+            <Text style={styles.label}>Quantidade de vezes</Text>
+            <TextInput
+              style={styles.input}
+              value={recQuantidade}
+              onChangeText={setRecQuantidade}
+              keyboardType="number-pad"
+              placeholder="12"
+              placeholderTextColor={colors.textMuted}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalBtnCancel} onPress={() => { setRepetir(false); setModalRecorrenciaVisible(false); }}>
+                <Text style={styles.modalBtnCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalBtnOk} onPress={() => setModalRecorrenciaVisible(false)}>
+                <Text style={styles.modalBtnOkText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {pickerOpen && (
+        <DateTimePicker
+          value={pickerMode === 'date' ? lembreteDate : lembreteTime}
+          mode={pickerMode}
+          display={pickerMode === 'date' ? 'calendar' : 'default'}
+          onChange={(_, selected) => {
+            if (!selected) { setPickerOpen(false); return; }
+            const d = new Date(selected);
+            if (pickerMode === 'date') setLembreteDate(d);
+            else setLembreteTime(d);
+            setPickerOpen(false);
+          }}
+        />
+      )}
+
+      {txDatePickerOpen && (
+        <DateTimePicker
+          value={txPickerDate}
+          mode="date"
+          display="calendar"
+          onChange={(_, selected) => {
+            if (!selected) { setTxDatePickerOpen(false); return; }
+            const d = new Date(selected);
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = String(d.getFullYear());
+            setDataTransacao(`${dd}/${mm}/${yyyy}`);
+            setTxDatePickerOpen(false);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -661,6 +951,58 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   content: { padding: spacing.lg, paddingBottom: spacing.xl * 2 },
   label: { fontSize: 14, color: colors.textMuted, marginBottom: spacing.xs },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  switchLabel: { fontSize: 14, color: colors.textSecondary, fontWeight: '600' },
+  reminderRow: {
+    marginTop: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  reminderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.backgroundCardElevated,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+  },
+  reminderBtnText: { color: colors.textPrimary, fontWeight: '700' },
+  reminderValue: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  datePickerRow: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: colors.backgroundCardElevated,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  datePickerText: { color: colors.textPrimary, fontWeight: '700' },
+  dateClearBtnIcon: { paddingHorizontal: 6, paddingVertical: 6 },
+  recSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+  },
+  recSummaryText: { color: colors.textSecondary, fontWeight: '700' },
   input: {
     backgroundColor: colors.backgroundCard,
     borderRadius: borderRadius.md,
@@ -696,15 +1038,19 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: spacing.lg,
   },
   modalBox: {
     backgroundColor: colors.backgroundCard,
     borderTopLeftRadius: borderRadius.lg,
     borderTopRightRadius: borderRadius.lg,
+    borderBottomLeftRadius: borderRadius.lg,
+    borderBottomRightRadius: borderRadius.lg,
     padding: spacing.lg,
-    maxHeight: '70%',
+    maxHeight: '100%',
+    width: '100%',
   },
   modalTitle: {
     fontSize: 18,
@@ -712,6 +1058,23 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
+  modalButtons: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm, justifyContent: 'space-between' },
+  modalBtnCancel: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.backgroundCardElevated,
+    alignItems: 'center',
+  },
+  modalBtnCancelText: { color: colors.textMuted, fontWeight: '800', fontSize: 16 },
+  modalBtnOk: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.secondary,
+    alignItems: 'center',
+  },
+  modalBtnOkText: { color: colors.textPrimary, fontWeight: '900', fontSize: 16 },
   modalList: { maxHeight: 320 },
   modalListContent: { paddingBottom: spacing.md },
   modalOption: {

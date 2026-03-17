@@ -32,6 +32,7 @@ import {
   saveAllAppDataToStorage,
 } from '../utils/storage';
 import { parseDateDDMM } from '../utils/dateMask';
+import { cancelTransactionReminder } from '../utils/lembretesTransacoes';
 import { useAuth } from './AuthContext';
 import { loadUserData, saveUserData } from '../lib/supabaseSync';
 
@@ -907,6 +908,15 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  const togglePagoTransacao = useCallback((id) => {
+    setTransacoes((prev) => prev.map((t) => {
+      if (t.id !== id) return t;
+      if (t.tipo === 'despesa_cartao') return t;
+      const nextPaid = t.pago === false ? true : false;
+      return { ...t, pago: nextPaid };
+    }));
+  }, []);
+
   const removeTransacao = useCallback((id) => {
     const getDeltas = (t) => {
       const d = {};
@@ -931,6 +941,11 @@ export function AppProvider({ children }) {
     setTransacoes((prev) => {
       const t = prev.find((x) => x.id === id);
       if (!t) return prev;
+
+      // Cancela lembrete se existir
+      if (t.lembrete?.notificationId) {
+        Promise.resolve().then(() => cancelTransactionReminder(t.lembrete.notificationId));
+      }
 
       // Se o dono apagou uma despesa compartilhada, remove as partes NÃO pagas do outro usuário.
       if (
@@ -1105,8 +1120,9 @@ export function AppProvider({ children }) {
         data,
         mes: mesTx,
         ano: anoTx,
-        categoriaId: 'sai-8', // Outros
+        categoriaId: 'sai-fin', // Financiamento
         fixa: true,
+        pago: true,
         financiamentoId,
         parcelaNumero: numeroParcela,
       });
@@ -1425,6 +1441,7 @@ export function AppProvider({ children }) {
     addTransacao,
     updateTransacao,
     removeTransacao,
+    togglePagoTransacao,
     saldoContas,
     saldoTodasContas,
     totalReceitas,

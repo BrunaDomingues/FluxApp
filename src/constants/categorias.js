@@ -28,6 +28,7 @@ export const categoriasPadrao = [
   { id: 'sai-12', nome: 'Supermercado', tipo: 'saida', icon: 'cart-outline' },
   { id: 'sai-13', nome: 'Transporte', tipo: 'saida', icon: 'car-outline' },
   { id: 'sai-14', nome: 'Viagem', tipo: 'saida', icon: 'airplane-outline' },
+  { id: 'sai-fin', nome: 'Financiamento', tipo: 'saida', icon: 'cash-outline' },
 ];
 
 /** Ícone padrão quando a categoria não tem icon salvo */
