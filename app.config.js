@@ -5,7 +5,7 @@ module.exports = {
   expo: {
     name: 'FluxApp',
     slug: 'FluxApp',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -14,7 +14,7 @@ module.exports = {
       resizeMode: 'contain',
       backgroundColor: '#ffffff',
     },
-    ios: { supportsTablet: true },
+    ios: { supportsTablet: true, buildNumber: '1' },
     android: {
       adaptiveIcon: {
         backgroundColor: '#E6F4FE',
@@ -25,6 +25,7 @@ module.exports = {
         'android.permission.MODIFY_AUDIO_SETTINGS',
       ],
       package: 'com.brunateemo.FluxApp',
+      versionCode: 1,
     },
     web: { favicon: './assets/favicon.png' },
     scheme: 'fluxapp',
