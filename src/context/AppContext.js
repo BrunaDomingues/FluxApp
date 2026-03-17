@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { AppState } from 'react-native';
 import { categoriasPadrao } from '../constants/categorias';
 import {
   loadCategorias as loadCategoriasStorage,
@@ -26,6 +27,9 @@ import {
   loadPerfil as loadPerfilStorage,
   savePerfil as savePerfilStorage,
   clearAllFluxAppData,
+  getStorageOwner,
+  setStorageOwner,
+  saveAllAppDataToStorage,
 } from '../utils/storage';
 import { parseDateDDMM } from '../utils/dateMask';
 import { useAuth } from './AuthContext';
@@ -55,10 +59,12 @@ const CARDS_ORDER_DEFAULT = [
 ];
 
 export function AppProvider({ children }) {
-  const { user } = useAuth();
+  const { user, getLinkedUsers, onRecebimentoFromUser } = useAuth();
   const [supabaseFetchDone, setSupabaseFetchDone] = useState(false);
   const [hydratedFromSupabase, setHydratedFromSupabase] = useState(false);
+  const [pendingSync, setPendingSync] = useState(false);
   const saveToSupabaseTimeoutRef = useRef(null);
+  const retrySyncIntervalRef = useRef(null);
 
   const [contas, setContas] = useState([
     { id: 'carteira', nome: 'Carteira', saldo: 0 },
@@ -89,7 +95,26 @@ export function AppProvider({ children }) {
   const [perfilLoaded, setPerfilLoaded] = useState(false);
 
   const resetAllData = useCallback(async () => {
+    if (saveToSupabaseTimeoutRef.current) {
+      clearTimeout(saveToSupabaseTimeoutRef.current);
+      saveToSupabaseTimeoutRef.current = null;
+    }
     await clearAllFluxAppData();
+    const contaInicial = [{ id: 'carteira', nome: 'Carteira', saldo: 0 }];
+    const payloadZerado = {
+      contas: contaInicial,
+      cartoes: [],
+      transacoes: [],
+      objetivos: [],
+      financiamentos: [],
+      orcamentoMensal: {},
+      recebimentosUsuarios: [],
+      usuarios: [],
+      cobrancasRecebidas: [],
+      perfil: null,
+      categorias: categoriasPadrao,
+      cardsTelaInicial: { enabled: CARDS_PADRAO, order: CARDS_ORDER_DEFAULT },
+    };
     setCategorias(categoriasPadrao);
     setCardsDaTelaInicialState(CARDS_PADRAO);
     setCardsOrdemState(CARDS_ORDER_DEFAULT);
@@ -102,8 +127,13 @@ export function AppProvider({ children }) {
     setPerfilState(null);
     setCartoes([]);
     setTransacoes([]);
-    setContas([{ id: 'carteira', nome: 'Carteira', saldo: 0 }]);
-  }, []);
+    setContas(contaInicial);
+    if (user?.id) {
+      const { error } = await saveUserData(user.id, payloadZerado, { overwrite: true });
+      if (error) return { error };
+    }
+    return {};
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -111,7 +141,42 @@ export function AppProvider({ children }) {
       return;
     }
     let cancelled = false;
-    loadUserData(user.id).then((data) => {
+    getStorageOwner().then((owner) => {
+      if (cancelled) return;
+      if (owner && owner.userId !== user.id) {
+        return clearAllFluxAppData();
+      }
+    }).then(() => {
+      if (cancelled) return;
+      setSupabaseFetchDone(false);
+      setHydratedFromSupabase(false);
+      setContas([{ id: 'carteira', nome: 'Carteira', saldo: 0 }]);
+      setCartoes([]);
+      setTransacoes([]);
+      setFinanciamentosState([]);
+      setObjetivosState([]);
+      setOrcamentoMensalState({});
+      setUsuariosOutros([]);
+      setRecebimentosDeUsuarios([]);
+      setCobrancasRecebidas([]);
+      setPerfilState(null);
+      setCategorias(categoriasPadrao);
+      setCardsDaTelaInicialState(CARDS_PADRAO);
+      setCardsOrdemState(CARDS_ORDER_DEFAULT);
+      setContasLoaded(false);
+      setCartoesLoaded(false);
+      setTransacoesLoaded(false);
+      setObjetivosLoaded(false);
+      setFinanciamentosLoaded(false);
+      setOrcamentoLoaded(false);
+      setUsuariosLoaded(false);
+      setRecebimentosLoaded(false);
+      setCobrancasRecebidasLoaded(false);
+      setPerfilLoaded(false);
+      setCategoriasLoaded(false);
+      setCardsLoaded(false);
+      return loadUserData(user.id);
+    }).then((data) => {
       if (cancelled) return;
       setSupabaseFetchDone(true);
       if (data && (data.contas?.length > 0 || data.transacoes?.length > 0 || Object.keys(data.orcamentoMensal || {}).length > 0 || data.usuarios?.length > 0 || data.cartoes?.length > 0 || data.objetivos?.length > 0 || data.financiamentos?.length > 0 || data.recebimentosUsuarios?.length > 0 || data.cobrancasRecebidas?.length > 0 || data.perfil)) {
@@ -125,7 +190,9 @@ export function AppProvider({ children }) {
         if (data.cobrancasRecebidas?.length >= 0) setCobrancasRecebidas(data.cobrancasRecebidas || []);
         if (data.perfil && typeof data.perfil === 'object') setPerfilState(data.perfil);
         if (data.usuarios?.length >= 0) {
-          const outros = (data.usuarios || []).filter((u) => u.id !== PRINCIPAL_ID && !u.principal);
+          const outros = (data.usuarios || []).filter(
+            (u) => u.id !== PRINCIPAL_ID && u.id !== user?.id && !u.principal
+          );
           setUsuariosOutros(outros);
         }
         if (Array.isArray(data.categorias) && data.categorias.length > 0) setCategorias(data.categorias);
@@ -146,13 +213,162 @@ export function AppProvider({ children }) {
         setCategoriasLoaded(true);
         setCardsLoaded(true);
         setHydratedFromSupabase(true);
+        saveAllAppDataToStorage(data);
+      } else {
+        setContasLoaded(true);
+        setCartoesLoaded(true);
+        setTransacoesLoaded(true);
+        setObjetivosLoaded(true);
+        setFinanciamentosLoaded(true);
+        setOrcamentoLoaded(true);
+        setUsuariosLoaded(true);
+        setRecebimentosLoaded(true);
+        setCobrancasRecebidasLoaded(true);
+        setPerfilLoaded(true);
+        setCategoriasLoaded(true);
+        setCardsLoaded(true);
       }
     });
     return () => { cancelled = true; };
   }, [user?.id]);
 
+  /** Recarrega contas e transações do Supabase (útil após marcar despesa compartilhada como paga). */
+  const refetchUserData = useCallback(() => {
+    if (!user?.id) return Promise.resolve();
+    return loadUserData(user.id).then((data) => {
+      if (data?.contas?.length > 0) setContas(data.contas);
+      if (data?.transacoes) setTransacoes(data.transacoes);
+    });
+  }, [user?.id]);
+
+  /** Sincroniza agora com o Supabase (antes de sair ou para retry). Retorna promise que resolve com { error } se falhar. */
+  const syncToSupabaseNow = useCallback(() => {
+    if (saveToSupabaseTimeoutRef.current) {
+      clearTimeout(saveToSupabaseTimeoutRef.current);
+      saveToSupabaseTimeoutRef.current = null;
+    }
+    if (!user?.id) return Promise.resolve({ error: null });
+    const payload = {
+      contas,
+      cartoes,
+      transacoes,
+      objetivos,
+      financiamentos,
+      orcamentoMensal,
+      recebimentosUsuarios: recebimentosDeUsuarios,
+      usuarios: [
+        { id: PRINCIPAL_ID, nome: perfil?.nomeCompleto || 'Principal', principal: true },
+        ...(usuariosOutros || []),
+      ],
+      cobrancasRecebidas,
+      perfil,
+      categorias,
+      cardsTelaInicial: { enabled: cardsDaTelaInicial, order: cardsOrdem },
+    };
+    return saveUserData(user.id, payload).then(({ error }) => {
+      setPendingSync(!!error);
+      if (!error) saveAllAppDataToStorage(payload);
+      return { error };
+    });
+  }, [user?.id, contas, cartoes, transacoes, objetivos, financiamentos, orcamentoMensal, recebimentosDeUsuarios, usuariosOutros, cobrancasRecebidas, perfil, categorias, cardsDaTelaInicial, cardsOrdem]);
+
   useEffect(() => {
-    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
+    if (user?.id && supabaseFetchDone) {
+      setStorageOwner({ userId: user.id, cpf: perfil?.cpf ?? null });
+    }
+  }, [user?.id, supabaseFetchDone, perfil?.cpf]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const allLoaded =
+      contasLoaded &&
+      cartoesLoaded &&
+      transacoesLoaded &&
+      objetivosLoaded &&
+      financiamentosLoaded &&
+      orcamentoLoaded &&
+      usuariosLoaded &&
+      recebimentosLoaded &&
+      cobrancasRecebidasLoaded &&
+      perfilLoaded &&
+      categoriasLoaded &&
+      cardsLoaded;
+    if (!allLoaded) return;
+    if (saveToSupabaseTimeoutRef.current) clearTimeout(saveToSupabaseTimeoutRef.current);
+    saveToSupabaseTimeoutRef.current = setTimeout(() => {
+      saveToSupabaseTimeoutRef.current = null;
+      const payload = {
+        contas,
+        cartoes,
+        transacoes,
+        objetivos,
+        financiamentos,
+        orcamentoMensal,
+        recebimentosUsuarios: recebimentosDeUsuarios,
+        usuarios: usuariosForPayload,
+        cobrancasRecebidas,
+        perfil,
+        categorias,
+        cardsTelaInicial: { enabled: cardsDaTelaInicial, order: cardsOrdem },
+      };
+      saveUserData(user.id, payload).then(({ error }) => {
+        setPendingSync(!!error);
+        if (!error) saveAllAppDataToStorage(payload);
+      });
+    }, 1500);
+    return () => {
+      if (saveToSupabaseTimeoutRef.current) clearTimeout(saveToSupabaseTimeoutRef.current);
+    };
+  }, [
+    user?.id,
+    contas,
+    cartoes,
+    transacoes,
+    objetivos,
+    financiamentos,
+    orcamentoMensal,
+    recebimentosDeUsuarios,
+    usuariosForPayload,
+    cobrancasRecebidas,
+    perfil,
+    categorias,
+    cardsDaTelaInicial,
+    cardsOrdem,
+    contasLoaded,
+    cartoesLoaded,
+    transacoesLoaded,
+    objetivosLoaded,
+    financiamentosLoaded,
+    orcamentoLoaded,
+    usuariosLoaded,
+    recebimentosLoaded,
+    cobrancasRecebidasLoaded,
+    perfilLoaded,
+    categoriasLoaded,
+    cardsLoaded,
+  ]);
+
+  useEffect(() => {
+    if (!pendingSync || !user?.id) return;
+    const retry = () => syncToSupabaseNow().then(({ error }) => { if (!error) setPendingSync(false); });
+    const id = setInterval(retry, 30000);
+    retrySyncIntervalRef.current = id;
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') retry(); });
+    return () => {
+      clearInterval(id);
+      sub?.remove();
+    };
+  }, [pendingSync, user?.id, syncToSupabaseNow]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') clearAllFluxAppData();
+    });
+    return () => sub?.remove();
+  }, []);
+
+  useEffect(() => {
+    if (user && supabaseFetchDone) return;
     let cancelled = false;
     loadCategoriasStorage().then((saved) => {
       if (!cancelled && saved && saved.length > 0) {
@@ -164,7 +380,7 @@ export function AppProvider({ children }) {
   }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
-    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
+    if (user && supabaseFetchDone) return;
     let cancelled = false;
     loadCardsStorage().then((saved) => {
       if (!cancelled && saved && typeof saved === 'object') {
@@ -184,7 +400,7 @@ export function AppProvider({ children }) {
   }, [cardsDaTelaInicial, cardsOrdem, cardsLoaded]);
 
   useEffect(() => {
-    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
+    if (user && supabaseFetchDone) return;
     let cancelled = false;
     loadFinanciamentosStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -201,7 +417,7 @@ export function AppProvider({ children }) {
   }, [financiamentos, financiamentosLoaded]);
 
   useEffect(() => {
-    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
+    if (user && supabaseFetchDone) return;
     let cancelled = false;
     loadObjetivosStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -218,7 +434,7 @@ export function AppProvider({ children }) {
   }, [objetivos, objetivosLoaded]);
 
   useEffect(() => {
-    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
+    if (user && supabaseFetchDone) return;
     let cancelled = false;
     loadContasStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved) && saved.length > 0) {
@@ -235,7 +451,7 @@ export function AppProvider({ children }) {
   }, [contas, contasLoaded]);
 
   useEffect(() => {
-    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
+    if (user && supabaseFetchDone) return;
     let cancelled = false;
     loadCartoesStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -252,7 +468,7 @@ export function AppProvider({ children }) {
   }, [cartoes, cartoesLoaded]);
 
   useEffect(() => {
-    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
+    if (user && supabaseFetchDone) return;
     let cancelled = false;
     loadTransacoesStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -269,7 +485,7 @@ export function AppProvider({ children }) {
   }, [transacoes, transacoesLoaded]);
 
   useEffect(() => {
-    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
+    if (user && supabaseFetchDone) return;
     let cancelled = false;
     loadOrcamentoMensalStorage().then((saved) => {
       if (!cancelled && saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
@@ -286,16 +502,18 @@ export function AppProvider({ children }) {
   }, [orcamentoMensal, orcamentoLoaded]);
 
   useEffect(() => {
-    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
+    if (user && supabaseFetchDone) return;
     let cancelled = false;
     loadUsuariosStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
-        setUsuariosOutros(saved.filter((u) => u.id !== PRINCIPAL_ID && !u.principal));
+        setUsuariosOutros(
+          saved.filter((u) => u.id !== PRINCIPAL_ID && u.id !== user?.id && !u.principal)
+        );
       }
       if (!cancelled) setUsuariosLoaded(true);
     });
     return () => { cancelled = true; };
-  }, [user, supabaseFetchDone, hydratedFromSupabase]);
+  }, [user?.id, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
     if (!usuariosLoaded) return;
@@ -307,7 +525,7 @@ export function AppProvider({ children }) {
   }, [usuariosOutros, perfil, usuariosLoaded]);
 
   useEffect(() => {
-    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
+    if (user && supabaseFetchDone) return;
     let cancelled = false;
     loadRecebimentosUsuariosStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -324,7 +542,7 @@ export function AppProvider({ children }) {
   }, [recebimentosDeUsuarios, recebimentosLoaded]);
 
   useEffect(() => {
-    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
+    if (user && supabaseFetchDone) return;
     let cancelled = false;
     loadCobrancasRecebidasStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -341,7 +559,7 @@ export function AppProvider({ children }) {
   }, [cobrancasRecebidas, cobrancasRecebidasLoaded]);
 
   useEffect(() => {
-    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
+    if (user && supabaseFetchDone) return;
     let cancelled = false;
     loadPerfilStorage().then((saved) => {
       if (!cancelled && saved && typeof saved === 'object') {
@@ -369,6 +587,35 @@ export function AppProvider({ children }) {
       cpf: meta.cpf || undefined,
     });
   }, [user?.id, user?.user_metadata, supabaseFetchDone, perfilLoaded, perfil]);
+
+  // Mescla usuários vinculados (conta convidou/convidado) em usuariosOutros; desvinculados continuam na lista com linked: false
+  useEffect(() => {
+    if (!user?.id || !supabaseFetchDone || !getLinkedUsers) return;
+    let cancelled = false;
+    getLinkedUsers().then(({ data }) => {
+      if (cancelled) return;
+      const linkedList = (data || []).filter((l) => l.id !== user?.id);
+      const linkedById = new Map(linkedList.map((l) => [l.id, { ...l, linked: true }]));
+      setUsuariosOutros((prev) => {
+        const prevIds = new Set(prev.map((u) => u.id));
+        const updated = prev
+          .filter((u) => u.id !== user?.id)
+          .map((u) => {
+            if (linkedById.has(u.id)) {
+              const l = linkedById.get(u.id);
+              return { ...u, nome: l.nome || u.nome, email: l.email ?? u.email, linked: true };
+            }
+            if (u.linked) return { ...u, linked: false };
+            return u;
+          });
+        linkedList.forEach((l) => {
+          if (!prevIds.has(l.id)) updated.push({ id: l.id, nome: l.nome, email: l.email, linked: true });
+        });
+        return updated;
+      });
+    });
+    return () => { cancelled = true; };
+  }, [user?.id, supabaseFetchDone, getLinkedUsers]);
 
   const usuariosForPayload = useMemo(
     () => [
@@ -447,6 +694,31 @@ export function AppProvider({ children }) {
   const setPerfil = useCallback((data) => {
     setPerfilState((prev) => ({ ...prev, ...data }));
   }, []);
+
+  const refreshLinkedUsers = useCallback(() => {
+    if (!getLinkedUsers) return;
+    getLinkedUsers().then(({ data }) => {
+      const linkedList = (data || []).filter((l) => l.id !== user?.id);
+      const linkedById = new Map(linkedList.map((l) => [l.id, { ...l, linked: true }]));
+      setUsuariosOutros((prev) => {
+        const prevIds = new Set(prev.map((u) => u.id));
+        const updated = prev
+          .filter((u) => u.id !== user?.id)
+          .map((u) => {
+            if (linkedById.has(u.id)) {
+              const l = linkedById.get(u.id);
+              return { ...u, nome: l.nome || u.nome, email: l.email ?? u.email, linked: true };
+            }
+            if (u.linked) return { ...u, linked: false };
+            return u;
+          });
+        linkedList.forEach((l) => {
+          if (!prevIds.has(l.id)) updated.push({ id: l.id, nome: l.nome, email: l.email, linked: true });
+        });
+        return updated;
+      });
+    });
+  }, [getLinkedUsers, user?.id]);
 
   const usuarios = useMemo(
     () => [
@@ -542,7 +814,7 @@ export function AppProvider({ children }) {
         });
       }
       setTransacoes((prev) => [...prev, ...novas]);
-      return;
+      return novas[0] || null;
     }
     const nova = {
       ...t,
@@ -552,7 +824,7 @@ export function AppProvider({ children }) {
       ano: t.ano != null && typeof t.ano === 'number' ? t.ano : now.getFullYear(),
     };
     setTransacoes((prev) => [...prev, nova]);
-    if (t.tipo === 'despesa_cartao') return;
+    if (t.tipo === 'despesa_cartao') return null;
     // Atualizar saldo da(s) conta(s)
     setContas((prev) => {
       const next = prev.map((c) => {
@@ -566,6 +838,7 @@ export function AppProvider({ children }) {
       });
       return next;
     });
+    return nova;
   }, []);
 
   const updateTransacao = useCallback((id, payload) => {
@@ -899,7 +1172,7 @@ export function AppProvider({ children }) {
 
   /** Registra recebimento de valor do usuário userId: reduz "a receber" e (por padrão) adiciona receita.
    * dataPagamento opcional "dd/mm/yyyy" — se vazio usa hoje.
-   * opts.semReceita=true: não cria transação de entrada (apenas dá baixa).
+   * opts.semReceita, opts.horario "HH:mm", opts.comprovante (base64 string).
    */
   const addRecebimento = useCallback((userId, valor, contaId, dataPagamento, opts) => {
     const id = Date.now().toString();
@@ -926,6 +1199,8 @@ export function AppProvider({ children }) {
     const valorNum = Math.round(Math.abs(Number(valor) || 0) * 100) / 100;
     if (valorNum <= 0) return;
     const semReceita = opts?.semReceita === true;
+    const horario = opts?.horario && typeof opts.horario === 'string' ? opts.horario.trim() : undefined;
+    const comprovante = opts?.comprovante && typeof opts.comprovante === 'string' ? opts.comprovante : undefined;
     const conta = contaId || contas.filter((c) => !c.arquivada)[0]?.id;
     if (!semReceita) {
       addTransacao({
@@ -939,8 +1214,21 @@ export function AppProvider({ children }) {
         recebimentoDeUserId: userId,
       });
     }
-    setRecebimentosDeUsuarios((prev) => [...prev, { id, userId, valor: valorNum, data, mes, ano, semReceita: semReceita || undefined }]);
-  }, [usuarios, contas, addTransacao]);
+    setRecebimentosDeUsuarios((prev) => [...prev, {
+      id,
+      userId,
+      valor: valorNum,
+      data,
+      mes,
+      ano,
+      ...(horario && { horario }),
+      ...(comprovante && { comprovante }),
+      semReceita: semReceita || undefined,
+    }]);
+    if (user?.id && String(userId).length >= 30) {
+      onRecebimentoFromUser?.(user.id, userId, valorNum);
+    }
+  }, [usuarios, contas, addTransacao, user?.id, onRecebimentoFromUser]);
 
   /** Lista de despesas em que o usuário userId tem parte (para cobrança). Cada item: { transacao, valorParte, porcentagem } */
   const getDespesasComParteDoUsuario = useCallback((userId) => {
@@ -957,6 +1245,7 @@ export function AppProvider({ children }) {
 
   /** Substitui todos os dados pelos importados (CSV ou backup JSON). parsed pode incluir perfil, usuarios, recebimentosUsuarios. */
   const importReplaceAll = useCallback((parsed) => {
+    const currentUserId = user?.id;
     if (parsed.contas != null && Array.isArray(parsed.contas) && parsed.contas.length > 0) {
       setContas(parsed.contas);
     }
@@ -979,12 +1268,16 @@ export function AppProvider({ children }) {
       setRecebimentosDeUsuarios(parsed.recebimentosUsuarios);
     }
     if (parsed.usuarios != null && Array.isArray(parsed.usuarios)) {
-      setUsuariosOutros(parsed.usuarios.filter((u) => u.id !== PRINCIPAL_ID && !u.principal));
+      setUsuariosOutros(
+        parsed.usuarios.filter(
+          (u) => u.id !== PRINCIPAL_ID && u.id !== currentUserId && !u.principal
+        )
+      );
     }
     if (parsed.perfil != null && typeof parsed.perfil === 'object') {
       setPerfilState(parsed.perfil);
     }
-  }, []);
+  }, [user?.id]);
 
   const getProximasParcelasCartao = useCallback(() => {
     return transacoes
@@ -1065,6 +1358,7 @@ export function AppProvider({ children }) {
     addUser,
     updateUser,
     removeUser,
+    refreshLinkedUsers,
     setPrincipalUser,
     getPrincipalUserId,
     getValorPartePrincipal,
@@ -1079,6 +1373,9 @@ export function AppProvider({ children }) {
     addCobrancaRecebida,
     perfil,
     setPerfil,
+    refetchUserData,
+    syncToSupabaseNow,
+    pendingSync,
     resetAllData,
   };
 

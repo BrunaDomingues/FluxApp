@@ -6,8 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
 } from 'react-native';
+import { AppAlert } from '../components/AppAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
@@ -22,7 +22,7 @@ export default function CartoesScreen({ navigation }) {
   };
 
   const handleExcluir = (cartao) => {
-    Alert.alert(
+    AppAlert.alert(
       'Excluir cartão',
       `Excluir "${cartao.nome}"? As despesas vinculadas não serão removidas.`,
       [

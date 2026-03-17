@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Modal,
   Pressable,
 } from 'react-native';
@@ -15,6 +14,7 @@ import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/currency';
+import { AppAlert } from '../components/AppAlert';
 import { maskDateInput, parseLocalDateFromYYYYMMDD } from '../utils/dateMask';
 
 const CORES_OBJETIVO = [
@@ -105,17 +105,17 @@ export default function AddObjetivoScreen({ navigation, route }) {
   const handleSalvar = () => {
     const nomeTrim = (nome || '').trim();
     if (!nomeTrim) {
-      Alert.alert('Atenção', 'Informe o nome do objetivo.');
+      AppAlert.alert('Atenção', 'Informe o nome do objetivo.');
       return;
     }
     const valor = rawToNumber(valorMeta);
     const inicial = rawToNumber(valorInicial);
     if (valor <= 0) {
-      Alert.alert('Atenção', 'Informe o valor da meta.');
+      AppAlert.alert('Atenção', 'Informe o valor da meta.');
       return;
     }
     if (inicial >= valor) {
-      Alert.alert('Atenção', 'O valor da meta deve ser maior que o valor inicial.');
+      AppAlert.alert('Atenção', 'O valor da meta deve ser maior que o valor inicial.');
       return;
     }
     const dataLimite = parseDataLimite(dataLimiteStr);

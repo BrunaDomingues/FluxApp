@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   Modal,
   Pressable,
   TextInput,
@@ -14,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { AppAlert } from '../components/AppAlert';
 import { formatBRL, numberToRaw, parseToRaw, rawToNumber } from '../utils/currency';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -63,7 +63,7 @@ export default function ContasScreen({ navigation }) {
         setReajustarValor(numberToRaw(conta.saldo || 0));
         break;
       case 'arquivar':
-        Alert.alert(
+        AppAlert.alert(
           'Arquivar conta',
           `Arquivar "${conta.nome}"? Ela sairá da listagem mas poderá ser reativada.`,
           [
@@ -86,7 +86,7 @@ export default function ContasScreen({ navigation }) {
   };
 
   const handleExcluirConta = (conta) => {
-    Alert.alert(
+    AppAlert.alert(
       'Excluir conta',
       `Excluir "${conta.nome}"?`,
       [

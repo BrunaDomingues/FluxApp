@@ -8,7 +8,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Modal,
   Pressable,
 } from 'react-native';
@@ -17,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { AppAlert } from '../components/AppAlert';
 import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/currency';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -84,7 +84,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
 
   const avancarStep2 = () => {
     if (totalNum <= 0) {
-      Alert.alert('Atenção', 'Informe o valor máximo de gastos.');
+      AppAlert.alert('Atenção', 'Informe o valor máximo de gastos.');
       return;
     }
     setStep(3);
@@ -108,7 +108,7 @@ export default function DefinirOrcamentoScreen({ navigation, route }) {
 
   const handleSalvar = () => {
     if (totalNum <= 0) {
-      Alert.alert('Atenção', 'Orçamento inválido.');
+      AppAlert.alert('Atenção', 'Orçamento inválido.');
       return;
     }
     const categoriasObj = {};

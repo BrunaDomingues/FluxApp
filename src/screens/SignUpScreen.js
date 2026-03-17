@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -15,12 +14,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
+import { AppAlert } from '../components/AppAlert';
 import { validateEmail, validatePassword, validateCpf, formatAuthErrorMessage } from '../utils/authValidation';
 import { maskCpfInput, normalizeCpf } from '../utils/dateMask';
 
 export default function SignUpScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { signUp, signOut, checkCpfExists, checkPendingSignup, completePendingSignup } = useAuth();
+  const { signUp, signOut, checkCpfExists, checkPendingSignup, completePendingSignup, getPendingByCpf } = useAuth();
   const [nomeCompleto, setNomeCompleto] = useState('');
   const [cpfDisplay, setCpfDisplay] = useState('');
   const [email, setEmail] = useState('');
@@ -30,10 +30,21 @@ export default function SignUpScreen({ navigation }) {
   const [showPasswordRepeat, setShowPasswordRepeat] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [completePendingMode, setCompletePendingMode] = useState(null);
 
   const cpfNormalized = normalizeCpf(cpfDisplay);
   const passwordsDontMatch = passwordRepeat.length > 0 && password !== passwordRepeat;
+
+  // Ao digitar um CPF com convite pendente, preenche nome e e-mail automaticamente
+  useEffect(() => {
+    if (cpfNormalized.length !== 11) return;
+    let cancelled = false;
+    getPendingByCpf(cpfNormalized).then(({ found, email: pendingEmail, nomeCompleto: pendingNome }) => {
+      if (cancelled || !found) return;
+      if (pendingNome) setNomeCompleto(pendingNome);
+      if (pendingEmail) setEmail(pendingEmail);
+    });
+    return () => { cancelled = true; };
+  }, [cpfNormalized, getPendingByCpf]);
 
   const setFieldError = (field, message) => {
     setErrors((prev) => {
@@ -48,38 +59,6 @@ export default function SignUpScreen({ navigation }) {
   const handleSignUp = async () => {
     const nome = nomeCompleto.trim();
     const e = email.trim();
-
-    if (completePendingMode) {
-      const pwd = validatePassword(password, passwordRepeat);
-      if (!pwd.ok) {
-        setErrors({ password: pwd.error, passwordRepeat: password !== passwordRepeat ? 'As senhas são diferentes.' : undefined });
-        return;
-      }
-      setLoading(true);
-      const { data, error } = await signUp(completePendingMode.email, password, {
-        nomeCompleto: completePendingMode.nomeCompleto,
-        cpf: completePendingMode.cpf,
-      });
-      if (error) {
-        setLoading(false);
-        setErrors({ password: formatAuthErrorMessage(error.message) || 'Erro ao criar senha.' });
-        return;
-      }
-      if (data?.user && !data.user.identities?.length) {
-        setLoading(false);
-        setErrors({ email: 'Este e-mail já está cadastrado. Faça login.' });
-        return;
-      }
-      await completePendingSignup();
-      await signOut();
-      setLoading(false);
-      Alert.alert(
-        'Cadastro concluído',
-        'A senha foi criada. Agora é só entrar usando este e-mail e senha.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
 
     const newErrors = {};
     const cpfResult = validateCpf(cpfDisplay);
@@ -102,12 +81,30 @@ export default function SignUpScreen({ navigation }) {
       setErrors({ email: 'Não foi possível verificar. Tente novamente.' });
       return;
     }
+
     if (pendingFound) {
+      const { data, error } = await signUp(e, password, {
+        nomeCompleto: nome || pendingNome || '',
+        cpf: cpfNormalized,
+      });
+      if (error) {
+        setLoading(false);
+        setErrors({ password: formatAuthErrorMessage(error.message) || 'Erro ao criar senha.' });
+        return;
+      }
+      if (data?.user && !data.user.identities?.length) {
+        setLoading(false);
+        setErrors({ email: 'Este e-mail já está cadastrado. Faça login.' });
+        return;
+      }
+      await completePendingSignup();
+      await signOut();
       setLoading(false);
-      setCompletePendingMode({ nomeCompleto: pendingNome || nome, email: e, cpf: cpfNormalized });
-      setPassword('');
-      setPasswordRepeat('');
-      setErrors({});
+      AppAlert.alert(
+        'Cadastro concluído',
+        'Conta criada. Agora é só entrar com este e-mail e senha.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -141,7 +138,7 @@ export default function SignUpScreen({ navigation }) {
     }
     await signOut();
     setLoading(false);
-    Alert.alert(
+    AppAlert.alert(
       'Conta criada',
       'Conta criada com sucesso. Agora é só entrar com o e-mail e a senha que você acabou de definir.',
       [{ text: 'OK' }]
@@ -169,24 +166,10 @@ export default function SignUpScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {completePendingMode ? (
-            <>
-              <Text style={styles.hint}>
-                Você foi convidado(a) para o app. Crie sua senha para concluir o cadastro. Depois é só fazer login com este e-mail e senha.
-              </Text>
-              <Text style={styles.label}>Nome</Text>
-              <TextInput style={[styles.input, styles.inputReadOnly]} value={completePendingMode.nomeCompleto} editable={false} />
-              <Text style={styles.label}>E-mail</Text>
-              <TextInput style={[styles.input, styles.inputReadOnly]} value={completePendingMode.email} editable={false} />
-              <Text style={styles.label}>CPF</Text>
-              <TextInput style={[styles.input, styles.inputReadOnly]} value={maskCpfInput(completePendingMode.cpf)} editable={false} />
-            </>
-          ) : (
-            <>
-              <Text style={styles.hint}>
-                Preencha CPF, e-mail e nome. Senha: mais de 6 caracteres, maiúscula e caractere especial.
-              </Text>
-              <Text style={styles.label}>CPF</Text>
+          <Text style={styles.hint}>
+            Preencha CPF, e-mail e nome. Senha: mais de 6 caracteres, maiúscula e caractere especial. Se você foi convidado, os dados podem ser preenchidos ao digitar o CPF.
+          </Text>
+          <Text style={styles.label}>CPF</Text>
               <TextInput
                 style={[styles.input, errors.cpf && styles.inputError]}
                 placeholder="000.000.000-00"
@@ -211,17 +194,15 @@ export default function SignUpScreen({ navigation }) {
               />
               {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
 
-              <Text style={styles.label}>Nome completo</Text>
-              <TextInput
-                style={[styles.input, errors.nomeCompleto && styles.inputError]}
-                placeholder="Ex: Maria Silva Santos"
-                placeholderTextColor={colors.textMuted}
-                value={nomeCompleto}
-                onChangeText={(t) => { setNomeCompleto(t); clearFieldError('nomeCompleto'); }}
-              />
-              {errors.nomeCompleto ? <Text style={styles.errorText}>{errors.nomeCompleto}</Text> : null}
-            </>
-          )}
+          <Text style={styles.label}>Nome completo</Text>
+          <TextInput
+            style={[styles.input, errors.nomeCompleto && styles.inputError]}
+            placeholder="Ex: Maria Silva Santos"
+            placeholderTextColor={colors.textMuted}
+            value={nomeCompleto}
+            onChangeText={(t) => { setNomeCompleto(t); clearFieldError('nomeCompleto'); }}
+          />
+          {errors.nomeCompleto ? <Text style={styles.errorText}>{errors.nomeCompleto}</Text> : null}
 
           <Text style={styles.label}>Senha</Text>
           <View style={[styles.passwordWrap, (errors.password || passwordsDontMatch) && styles.passwordWrapError]}>
@@ -282,24 +263,18 @@ export default function SignUpScreen({ navigation }) {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Ionicons name={completePendingMode ? 'key-outline' : 'person-add-outline'} size={22} color="#fff" />
-                <Text style={styles.btnText}>{completePendingMode ? 'Criar senha' : 'Criar conta'}</Text>
+                <Ionicons name="person-add-outline" size={22} color="#fff" />
+                <Text style={styles.btnText}>Criar conta</Text>
               </>
             )}
           </TouchableOpacity>
 
-          {completePendingMode ? (
-            <TouchableOpacity style={styles.link} onPress={() => { setCompletePendingMode(null); setErrors({}); }}>
-              <Text style={styles.linkText}>Voltar</Text>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Já tem conta?</Text>
+            <TouchableOpacity onPress={() => navigation.replace('Login')}>
+              <Text style={styles.linkText}>Entrar</Text>
             </TouchableOpacity>
-          ) : (
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Já tem conta?</Text>
-              <TouchableOpacity onPress={() => navigation.replace('Login')}>
-                <Text style={styles.linkText}>Entrar</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          </View>
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
@@ -335,10 +310,6 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: colors.spending,
     borderWidth: 2,
-  },
-  inputReadOnly: {
-    opacity: 0.9,
-    color: colors.textMuted,
   },
   passwordWrap: {
     flexDirection: 'row',

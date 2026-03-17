@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Modal,
   Pressable,
 } from 'react-native';
@@ -16,12 +15,13 @@ import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { maskCpfInput, normalizeCpf } from '../utils/dateMask';
+import { AppAlert } from '../components/AppAlert';
 import { validateEmail, validateCpf } from '../utils/authValidation';
 
 export default function UsuariosScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { usuarios, addUser, updateUser, removeUser } = useApp();
-  const { createPendingUser } = useAuth();
+  const { usuarios, addUser, updateUser, removeUser, refreshLinkedUsers } = useApp();
+  const { user, createPendingUser, unlinkUser, checkCpfExists, linkExistingUserByCpf } = useAuth();
   const [modalVisible, setModalVisible] = useState(false);
   const [editarId, setEditarId] = useState(null);
   const [nomeInput, setNomeInput] = useState('');
@@ -29,7 +29,9 @@ export default function UsuariosScreen({ navigation }) {
   const [emailInput, setEmailInput] = useState('');
   const [conviteEnviado, setConviteEnviado] = useState(false);
 
-  const listaParaDividir = (usuarios || []).filter((u) => !u.principal);
+  const listaParaDividir = (usuarios || []).filter(
+    (u) => !u.principal && u.id !== user?.id
+  );
   const usuariosOrdenados = [...listaParaDividir].sort((a, b) =>
     (a.nome || '').localeCompare(b.nome || '')
   );
@@ -54,19 +56,42 @@ export default function UsuariosScreen({ navigation }) {
     setModalVisible(true);
   };
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
     const nome = nomeInput.trim();
     if (!nome) {
-      Alert.alert('Atenção', 'Informe o nome.');
+      AppAlert.alert('Atenção', 'Informe o nome.');
       return;
     }
     const cpfDigits = (cpfInput || '').replace(/\D/g, '').slice(0, 11);
     const email = emailInput.trim() || undefined;
     if (editarId) {
       updateUser(editarId, { nome, cpf: cpfDigits || undefined, email });
-    } else {
-      addUser(nome, cpfDigits || undefined, email);
+      setModalVisible(false);
+      return;
     }
+    if (cpfDigits.length === 11) {
+      const cpfResult = validateCpf(cpfInput);
+      if (!cpfResult.ok) {
+        AppAlert.alert('CPF inválido', cpfResult.error);
+        return;
+      }
+      const { exists } = await checkCpfExists(cpfDigits);
+      if (exists) {
+        const { data, error } = await linkExistingUserByCpf(cpfDigits);
+        if (error) {
+          AppAlert.alert('Erro ao vincular', error);
+          return;
+        }
+        refreshLinkedUsers?.();
+        setModalVisible(false);
+        AppAlert.alert(
+          'Conta vinculada',
+          `${data?.nome || 'A pessoa'} já tem conta no app e foi vinculado(a) para dividir despesas.`
+        );
+        return;
+      }
+    }
+    addUser(nome, cpfDigits || undefined, email);
     setModalVisible(false);
   };
 
@@ -75,38 +100,55 @@ export default function UsuariosScreen({ navigation }) {
     const cpfDigits = normalizeCpf(cpfInput);
     const e = emailInput.trim();
     if (!nome) {
-      Alert.alert('Atenção', 'Informe o nome.');
+      AppAlert.alert('Atenção', 'Informe o nome.');
       return;
     }
     const cpfResult = validateCpf(cpfInput);
     if (!cpfResult.ok) {
-      Alert.alert('CPF inválido', cpfResult.error);
+      AppAlert.alert('CPF inválido', cpfResult.error);
       return;
     }
     if (!e) {
-      Alert.alert('Atenção', 'Informe o e-mail para enviar o convite.');
+      AppAlert.alert('Atenção', 'Informe o e-mail para enviar o convite.');
       return;
     }
     if (!validateEmail(e)) {
-      Alert.alert('E-mail inválido', 'Digite um e-mail válido.');
+      AppAlert.alert('E-mail inválido', 'Digite um e-mail válido.');
       return;
     }
     const { error } = await createPendingUser(e, cpfDigits, nome);
     if (error) {
-      Alert.alert('Erro', error);
+      AppAlert.alert('Erro', error);
       return;
     }
     setConviteEnviado(true);
-    Alert.alert('Convite enviado', 'A pessoa pode abrir o app, ir em Criar conta e informar este e-mail e CPF. Em seguida só precisará criar a senha.');
+    AppAlert.alert('Convite enviado', 'A pessoa pode abrir o app, ir em Criar conta e informar este e-mail e CPF. Em seguida só precisará criar a senha.');
+  };
+
+  const handleDesvincular = (u) => {
+    AppAlert.alert(
+      'Desvincular conta',
+      `Desvincular de "${u.nome}"? A pessoa deixa de aparecer como conta vinculada, mas continua na lista para dividir despesas e o histórico de despesas entre vocês é mantido (com o nome dela).`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Desvincular', onPress: async () => {
+          const { error } = await unlinkUser(u.id);
+          if (error) AppAlert.alert('Erro', error);
+          else refreshLinkedUsers?.();
+        } },
+      ]
+    );
   };
 
   const handleExcluir = (u) => {
-    Alert.alert(
+    AppAlert.alert(
       'Excluir usuário',
-      `Excluir "${u.nome}"? As divisões de despesas que incluíam essa pessoa continuarão com os outros participantes.`,
+      u.linked
+        ? `Para remover "${u.nome}" da lista, primeiro desvincule. Depois pode excluir. O histórico de despesas mantém o nome.`
+        : `Excluir "${u.nome}" da lista? As despesas já divididas continuam; o nome dessa pessoa segue aparecendo nelas.`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Excluir', style: 'destructive', onPress: () => removeUser(u.id) },
+        ...(u.linked ? [] : [{ text: 'Excluir', style: 'destructive', onPress: () => removeUser(u.id) }]),
       ]
     );
   };
@@ -143,12 +185,21 @@ export default function UsuariosScreen({ navigation }) {
                   </View>
                   <View style={styles.rowLeftText}>
                     <Text style={styles.nome}>{u.nome || 'Sem nome'}</Text>
+                    {u.linked ? (
+                      <Text style={styles.vinculadoBadge}>Conta vinculada</Text>
+                    ) : null}
                   </View>
                 </View>
                 <View style={styles.rowActions}>
-                  <TouchableOpacity style={styles.iconBtn} onPress={() => handleAbrirEdit(u)}>
-                    <Ionicons name="pencil-outline" size={20} color={colors.textMuted} />
-                  </TouchableOpacity>
+                  {u.linked ? (
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => handleDesvincular(u)}>
+                      <Ionicons name="link-outline" size={20} color={colors.secondary} />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => handleAbrirEdit(u)}>
+                      <Ionicons name="pencil-outline" size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity style={styles.iconBtn} onPress={() => handleExcluir(u)}>
                     <Ionicons name="trash-outline" size={20} color={colors.spending} />
                   </TouchableOpacity>
@@ -178,6 +229,22 @@ export default function UsuariosScreen({ navigation }) {
               <Ionicons name="cash-outline" size={24} color={colors.positive} />
               <Text style={[styles.cobrancaBtnText, { color: colors.positive }]}>Registrar recebimento</Text>
               <Text style={styles.cobrancaBtnSub}>Dar baixa quando alguém pagar (gera receita)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.despesasQueDevoBtn}
+              onPress={() => navigation.navigate('DespesasCompartilhadasPendentes')}
+            >
+              <Ionicons name="card-outline" size={24} color={colors.spending} />
+              <Text style={[styles.cobrancaBtnText, { color: colors.spending }]}>Despesas que devo</Text>
+              <Text style={styles.cobrancaBtnSub}>Sua parte de despesas compartilhadas e marcar como pago</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.pagamentosSinalizadosBtn}
+              onPress={() => navigation.navigate('PagamentosSinalizados')}
+            >
+              <Ionicons name="checkmark-done-outline" size={24} color={colors.positive} />
+              <Text style={[styles.cobrancaBtnText, { color: colors.positive }]}>Pagamentos sinalizados</Text>
+              <Text style={styles.cobrancaBtnSub}>Alguém marcou que te pagou — confirmar e levar para sua conta</Text>
             </TouchableOpacity>
           </>
         )}
@@ -283,6 +350,11 @@ const styles = StyleSheet.create({
   },
   rowLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   rowLeftText: { flex: 1 },
+  vinculadoBadge: {
+    fontSize: 12,
+    color: colors.secondary,
+    marginTop: 2,
+  },
   avatar: {
     width: 44,
     height: 44,
@@ -321,6 +393,30 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.06)',
   },
   recebimentoBtn: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    marginTop: spacing.sm,
+  },
+  despesasQueDevoBtn: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.backgroundCard,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    marginTop: spacing.sm,
+  },
+  pagamentosSinalizadosBtn: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',

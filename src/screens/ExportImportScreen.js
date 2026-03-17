@@ -6,13 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Share,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { AppAlert } from '../components/AppAlert';
 import { buildCSVFromData, parseCSVToData, parseCobrancaPayload, buildBackupPayload, parseBackupPayload } from '../utils/exportImport';
 import { normalizeCpf } from '../utils/dateMask';
 
@@ -93,7 +93,7 @@ export default function ExportImportScreen({ navigation }) {
 
   const handleImportBackup = async () => {
     if (!DocumentPicker || !FileSystem) {
-      Alert.alert('Importar backup', 'Recursos de arquivo não disponíveis.');
+      AppAlert.alert('Importar backup', 'Recursos de arquivo não disponíveis.');
       return;
     }
     setLoading(true);
@@ -122,7 +122,7 @@ export default function ExportImportScreen({ navigation }) {
         objetivos: (parsed.objetivos || []).length,
         financiamentos: (parsed.financiamentos || []).length,
       };
-      Alert.alert(
+      AppAlert.alert(
         'Restaurar backup',
         `O backup contém: ${count.contas} contas, ${count.cartoes} cartões, ${count.transacoes} transações, ${count.objetivos} objetivos, ${count.financiamentos} financiamentos. Substituir todos os dados atuais por este backup?`,
         [
@@ -202,7 +202,7 @@ export default function ExportImportScreen({ navigation }) {
 
   const handleImportCSV = async () => {
     if (!DocumentPicker || !FileSystem) {
-      Alert.alert('Importar', 'Selecione um pacote de documentos (expo-document-picker) e expo-file-system para importar CSV.');
+      AppAlert.alert('Importar', 'Selecione um pacote de documentos (expo-document-picker) e expo-file-system para importar CSV.');
       return;
     }
     setLoading(true);
@@ -226,7 +226,7 @@ export default function ExportImportScreen({ navigation }) {
         objetivos: (parsed.objetivos || []).length,
         financiamentos: (parsed.financiamentos || []).length,
       };
-      Alert.alert(
+      AppAlert.alert(
         'Confirmar importação',
         `O arquivo contém: ${count.contas} contas, ${count.cartoes} cartões, ${count.transacoes} transações, ${count.objetivos} objetivos, ${count.financiamentos} financiamentos. Substituir todos os dados atuais pelos do arquivo?`,
         [
@@ -249,7 +249,7 @@ export default function ExportImportScreen({ navigation }) {
 
   const handleImportCobrancaRecebida = async () => {
     if (!DocumentPicker || !FileSystem) {
-      Alert.alert('Importar cobrança', 'Recursos de arquivo não disponíveis.');
+      AppAlert.alert('Importar cobrança', 'Recursos de arquivo não disponíveis.');
       return;
     }
     setLoading(true);

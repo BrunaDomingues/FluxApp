@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   Modal,
   Pressable,
   Switch,
@@ -19,6 +18,7 @@ import { WebView } from 'react-native-webview';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { AppAlert } from '../components/AppAlert';
 import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/currency';
 
 const SPEECH_HTML = `
@@ -148,7 +148,7 @@ export default function AddAccountScreen({ navigation, route }) {
       if (data.done || data.transcript) setModalVoz(false);
       if (data.error) {
         if (data.error !== 'aborted' && data.error !== 'no-speech') {
-          Alert.alert('Reconhecimento de voz', data.error === 'not-allowed' ? 'Permita o uso do microfone nas configurações do app.' : 'Não foi possível transcrever.');
+          AppAlert.alert('Reconhecimento de voz', data.error === 'not-allowed' ? 'Permita o uso do microfone nas configurações do app.' : 'Não foi possível transcrever.');
         }
         setModalVoz(false);
       }
@@ -175,7 +175,7 @@ export default function AddAccountScreen({ navigation, route }) {
   const handleSalvar = () => {
     const n = (nome || '').trim();
     if (!n) {
-      Alert.alert('Atenção', 'Informe o nome da conta.');
+      AppAlert.alert('Atenção', 'Informe o nome da conta.');
       return;
     }
     if (isEditMode) {
@@ -203,7 +203,7 @@ export default function AddAccountScreen({ navigation, route }) {
   };
 
   const handleExcluir = () => {
-    Alert.alert(
+    AppAlert.alert(
       'Excluir conta',
       `Excluir "${nome || editar?.nome}"?`,
       [

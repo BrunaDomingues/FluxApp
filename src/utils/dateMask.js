@@ -62,3 +62,36 @@ export function normalizeCpf(str) {
   const digits = String(str).replace(/\D/g, '').slice(0, 11);
   return digits.length === 11 ? digits : String(str).replace(/\D/g, '');
 }
+
+/**
+ * Parseia data/hora no formato EXIF DateTimeOriginal: "yyyy:mm:dd HH:mm:ss" ou "yyyy-mm-dd HH:mm:ss"
+ * @returns {{ data: string (dd/mm/yyyy), horario: string (HH:mm) } | null}
+ */
+export function parseExifDateTime(str) {
+  if (!str || typeof str !== 'string') return null;
+  const trimmed = str.trim();
+  const [datePart, timePart] = trimmed.split(/\s+/);
+  if (!datePart) return null;
+  const dateSegments = datePart.replace(/-/g, ':').split(':');
+  if (dateSegments.length < 3) return null;
+  const y = parseInt(dateSegments[0], 10);
+  const m = parseInt(dateSegments[1], 10);
+  const d = parseInt(dateSegments[2], 10);
+  if (isNaN(y) || isNaN(m) || isNaN(d) || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const data = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+  let horario = '';
+  if (timePart) {
+    const [h, min] = timePart.split(':').map((x) => parseInt(x, 10));
+    if (!isNaN(h) && h >= 0 && h <= 23 && !isNaN(min) && min >= 0 && min <= 59) {
+      horario = `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    }
+  }
+  return { data, horario: horario || null };
+}
+
+/** Máscara horário HH:mm (até 5 caracteres: HH:mm). */
+export function maskTimeInput(text) {
+  const digits = (text || '').replace(/\D/g, '').slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return digits.slice(0, 2) + ':' + digits.slice(2);
+}

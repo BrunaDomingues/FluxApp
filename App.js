@@ -36,13 +36,17 @@ import AddObjetivoScreen from './src/screens/AddObjetivoScreen';
 import ExportImportScreen from './src/screens/ExportImportScreen';
 import UsuariosScreen from './src/screens/UsuariosScreen';
 import CobrancaUsuarioScreen from './src/screens/CobrancaUsuarioScreen';
+import DespesasCompartilhadasPendentesScreen from './src/screens/DespesasCompartilhadasPendentesScreen';
+import PagamentosSinalizadosScreen from './src/screens/PagamentosSinalizadosScreen';
 import CobrancasRecebidasScreen from './src/screens/CobrancasRecebidasScreen';
 import PerfilScreen from './src/screens/PerfilScreen';
+import GerenciarContasScreen from './src/screens/GerenciarContasScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import ResetPasswordCodeScreen from './src/screens/ResetPasswordCodeScreen';
 import ResetPasswordConfirmScreen from './src/screens/ResetPasswordConfirmScreen';
+import { AppAlertProvider } from './src/components/AppAlert';
 import { colors } from './src/constants/theme';
 
 const Stack = createStackNavigator();
@@ -97,8 +101,12 @@ function MainStack() {
       <Stack.Screen name="ExportImport" component={ExportImportScreen} />
       <Stack.Screen name="Usuarios" component={UsuariosScreen} />
       <Stack.Screen name="CobrancaUsuario" component={CobrancaUsuarioScreen} />
+      <Stack.Screen name="DespesasCompartilhadasPendentes" component={DespesasCompartilhadasPendentesScreen} />
+      <Stack.Screen name="PagamentosSinalizados" component={PagamentosSinalizadosScreen} />
       <Stack.Screen name="CobrancasRecebidas" component={CobrancasRecebidasScreen} />
       <Stack.Screen name="Perfil" component={PerfilScreen} />
+      <Stack.Screen name="GerenciarContas" component={GerenciarContasScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="ResetPasswordCode" component={ResetPasswordCodeScreen} />
     </Stack.Navigator>
   );
@@ -153,10 +161,12 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
-          <NavigationContainer>
-            <StatusBar style="light" />
-            <RootNavigator />
-          </NavigationContainer>
+          <AppAlertProvider>
+            <NavigationContainer>
+              <StatusBar style="light" />
+              <RootNavigator />
+            </NavigationContainer>
+          </AppAlertProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

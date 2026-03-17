@@ -12,6 +12,7 @@ const KEY_USUARIOS = '@fluxapp_usuarios';
 const KEY_RECEBIMENTOS_USUARIOS = '@fluxapp_recebimentos_usuarios';
 const KEY_COBRANCAS_RECEBIDAS = '@fluxapp_cobrancas_recebidas';
 const KEY_PERFIL = '@fluxapp_perfil';
+const KEY_OWNER = '@fluxapp_owner';
 
 const ALL_KEYS = [
   KEY_CATEGORIAS,
@@ -26,6 +27,7 @@ const ALL_KEYS = [
   KEY_RECEBIMENTOS_USUARIOS,
   KEY_COBRANCAS_RECEBIDAS,
   KEY_PERFIL,
+  KEY_OWNER,
 ];
 
 export async function loadCategorias() {
@@ -282,10 +284,70 @@ export async function savePerfil(perfil) {
   }
 }
 
+/**
+ * Grava no localStorage o objeto completo dos dados do app (mesmo formato do Supabase/parseAppDataFromObject).
+ * Usado após buscar do banco ou após salvar no banco, para manter celular com os mesmos dados e permitir uso offline na sessão.
+ */
+export async function saveAllAppDataToStorage(data) {
+  if (!data || typeof data !== 'object') return;
+  try {
+    if (Array.isArray(data.contas)) await saveContas(data.contas);
+    if (Array.isArray(data.cartoes)) await saveCartoes(data.cartoes);
+    if (Array.isArray(data.transacoes)) await saveTransacoes(data.transacoes);
+    if (Array.isArray(data.objetivos)) await saveObjetivos(data.objetivos);
+    if (Array.isArray(data.financiamentos)) await saveFinanciamentos(data.financiamentos);
+    if (data.orcamentoMensal != null && typeof data.orcamentoMensal === 'object') await saveOrcamentoMensal(data.orcamentoMensal);
+    if (Array.isArray(data.recebimentosUsuarios)) await saveRecebimentosUsuarios(data.recebimentosUsuarios);
+    if (Array.isArray(data.usuarios)) await saveUsuarios(data.usuarios);
+    if (Array.isArray(data.cobrancasRecebidas)) await saveCobrancasRecebidas(data.cobrancasRecebidas);
+    if (data.perfil != null && typeof data.perfil === 'object') await savePerfil(data.perfil);
+    if (Array.isArray(data.categorias)) await saveCategorias(data.categorias);
+    if (data.cardsTelaInicial != null && typeof data.cardsTelaInicial === 'object') {
+      await saveCardsTelaInicial(data.cardsTelaInicial);
+    }
+  } catch (e) {
+    console.warn('saveAllAppDataToStorage:', e);
+  }
+}
+
 export async function clearAllFluxAppData() {
   try {
     await AsyncStorage.multiRemove(ALL_KEYS);
   } catch (e) {
     console.warn('clearAllFluxAppData:', e);
+  }
+}
+
+/** Dono dos dados no storage: { userId, cpf }. Usado para verificar se o local é do usuário logado. */
+export async function getStorageOwner() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY_OWNER);
+    if (raw) {
+      const data = JSON.parse(raw);
+      return data && typeof data === 'object' && data.userId ? data : null;
+    }
+  } catch (e) {
+    console.warn('getStorageOwner:', e);
+  }
+  return null;
+}
+
+export async function setStorageOwner(owner) {
+  try {
+    if (owner && owner.userId) {
+      await AsyncStorage.setItem(KEY_OWNER, JSON.stringify({ userId: owner.userId, cpf: owner.cpf ?? null }));
+    } else {
+      await AsyncStorage.removeItem(KEY_OWNER);
+    }
+  } catch (e) {
+    console.warn('setStorageOwner:', e);
+  }
+}
+
+export async function removeStorageOwner() {
+  try {
+    await AsyncStorage.removeItem(KEY_OWNER);
+  } catch (e) {
+    console.warn('removeStorageOwner:', e);
   }
 }

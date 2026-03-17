@@ -10,13 +10,16 @@ import {
   Modal,
   TextInput,
   Pressable,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
-import { maskDateInput } from '../utils/dateMask';
+import { maskDateInput, maskTimeInput, parseExifDateTime } from '../utils/dateMask';
 import { buildCobrancaPayload } from '../utils/exportImport';
+import { AppAlert } from '../components/AppAlert';
 
 let captureRef;
 let Sharing;
@@ -56,6 +59,9 @@ export default function CobrancaUsuarioScreen({ navigation, route }) {
   const [payerId, setPayerId] = useState(null);
   const [debtorId, setDebtorId] = useState(null);
   const [dataPagamento, setDataPagamento] = useState('');
+  const [horarioPagamento, setHorarioPagamento] = useState('');
+  const [comprovanteUri, setComprovanteUri] = useState(null);
+  const [comprovanteBase64, setComprovanteBase64] = useState(null);
   const [modalSelectPayerVisible, setModalSelectPayerVisible] = useState(false);
   const [modalSelectDebtorVisible, setModalSelectDebtorVisible] = useState(false);
   const viewRef = useRef(null);
@@ -282,6 +288,46 @@ export default function CobrancaUsuarioScreen({ navigation, route }) {
     setValorRecebimento(restante > 0 ? restante.toFixed(2).replace('.', ',') : '');
   };
 
+  const handleAnexarComprovante = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        AppAlert.alert('Permissão', 'É necessário permitir acesso às fotos para anexar o comprovante.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+        exif: true,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const uri = asset.uri;
+      const exifDateTime = asset.exif?.DateTimeOriginal || asset.exif?.DateTime;
+      if (exifDateTime) {
+        const parsed = parseExifDateTime(exifDateTime);
+        if (parsed) {
+          if (parsed.data) setDataPagamento(parsed.data);
+          if (parsed.horario) setHorarioPagamento(parsed.horario);
+        }
+      }
+      if (FileSystem && uri) {
+        try {
+          const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+          setComprovanteBase64(base64);
+          setComprovanteUri(uri);
+        } catch (_) {
+          setComprovanteUri(uri);
+        }
+      } else {
+        setComprovanteUri(uri);
+      }
+    } catch (e) {
+      if (e?.code !== 'E_PICKER_CANCELLED') AppAlert.alert('Erro', 'Não foi possível abrir as fotos.');
+    }
+  };
+
   const handleConfirmarRecebimento = () => {
     const quemPagou = payerId || userId;
     const devedor = debtorEfetivoId;
@@ -300,19 +346,30 @@ export default function CobrancaUsuarioScreen({ navigation, route }) {
       setMsg(`O valor não pode ser maior que o restante a receber desse usuário (R$ ${restanteDevedor.toFixed(2).replace('.', ',')}).`);
       return;
     }
-    if (quemPagou === principalId) {
-      addRecebimento(devedor, valor, undefined, dataPagamento?.trim() || undefined, { semReceita: true });
-    } else {
-      addRecebimento(devedor, valor, undefined, dataPagamento?.trim() || undefined);
-    }
+    const opts = {
+      ...(quemPagou === principalId && { semReceita: true }),
+      ...(horarioPagamento?.trim() && { horario: horarioPagamento.trim() }),
+      ...(comprovanteBase64 && { comprovante: comprovanteBase64 }),
+    };
+    addRecebimento(devedor, valor, undefined, dataPagamento?.trim() || undefined, opts);
     setModalRecebimentoVisible(false);
     setValorRecebimento('');
     setDataPagamento('');
+    setHorarioPagamento('');
+    setComprovanteUri(null);
+    setComprovanteBase64(null);
     setPayerId(null);
     setDebtorId(null);
     setMsg(quemPagou === principalId
       ? 'Baixa registrada (sem criar receita).'
       : 'Recebimento registrado! O valor foi adicionado às receitas.');
+  };
+
+  const handleFecharModalRecebimento = () => {
+    setModalRecebimentoVisible(false);
+    setHorarioPagamento('');
+    setComprovanteUri(null);
+    setComprovanteBase64(null);
   };
 
   const handleGerarImagem = async () => {
@@ -500,58 +557,89 @@ export default function CobrancaUsuarioScreen({ navigation, route }) {
         visible={modalRecebimentoVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setModalRecebimentoVisible(false)}
+        onRequestClose={handleFecharModalRecebimento}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setModalRecebimentoVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={handleFecharModalRecebimento}>
           <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>Registrar recebimento</Text>
-            <Text style={styles.modalSub}>
-              Escolha quem pagou. Se for o principal, não cria receita — apenas dá baixa no alerta.
-            </Text>
-            <Text style={styles.modalLabel}>Quem pagou?</Text>
-            <TouchableOpacity style={styles.selectRow} onPress={() => setModalSelectPayerVisible(true)} activeOpacity={0.8}>
-              <Ionicons name="person-outline" size={18} color={colors.textMuted} />
-              <Text style={[styles.selectRowText, !payerNome && styles.selectRowPlaceholder]}>
-                {payerNome || 'Selecionar usuário'}
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalTitle}>Registrar recebimento</Text>
+              <Text style={styles.modalSub}>
+                Escolha quem pagou. Se for o principal, não cria receita — apenas dá baixa no alerta.
               </Text>
-              <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-            {isPayerPrincipal && (
-              <>
-                <Text style={styles.modalLabel}>Dar baixa para qual usuário?</Text>
-                <TouchableOpacity style={styles.selectRow} onPress={() => setModalSelectDebtorVisible(true)} activeOpacity={0.8}>
-                  <Ionicons name="people-outline" size={18} color={colors.textMuted} />
-                  <Text style={[styles.selectRowText, !debtorEfetivoNome && styles.selectRowPlaceholder]}>
-                    {debtorEfetivoNome || 'Selecionar usuário'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
-                </TouchableOpacity>
-              </>
-            )}
-            {payerId && (
-              <>
-                <Text style={styles.modalLabel}>Data do pagamento</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  value={dataPagamento}
-                  onChangeText={(t) => setDataPagamento(maskDateInput(t))}
-                  placeholder="dd/mm/aaaa — vazio = hoje"
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.modalLabel}>Valor pago (receita)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  value={valorRecebimento}
-                  onChangeText={setValorRecebimento}
-                  placeholder={aReceberDoDebtorEfetivo > 0 ? `Ex: ${aReceberDoDebtorEfetivo.toFixed(2).replace('.', ',')} (valor total)` : '0,00'}
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="decimal-pad"
-                />
-              </>
-            )}
+              <Text style={styles.modalLabel}>Quem pagou?</Text>
+              <TouchableOpacity style={styles.selectRow} onPress={() => setModalSelectPayerVisible(true)} activeOpacity={0.8}>
+                <Ionicons name="person-outline" size={18} color={colors.textMuted} />
+                <Text style={[styles.selectRowText, !payerNome && styles.selectRowPlaceholder]}>
+                  {payerNome || 'Selecionar usuário'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+              {isPayerPrincipal && (
+                <>
+                  <Text style={styles.modalLabel}>Dar baixa para qual usuário?</Text>
+                  <TouchableOpacity style={styles.selectRow} onPress={() => setModalSelectDebtorVisible(true)} activeOpacity={0.8}>
+                    <Ionicons name="people-outline" size={18} color={colors.textMuted} />
+                    <Text style={[styles.selectRowText, !debtorEfetivoNome && styles.selectRowPlaceholder]}>
+                      {debtorEfetivoNome || 'Selecionar usuário'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </>
+              )}
+              {payerId && (
+                <>
+                  <Text style={styles.modalLabel}>Data do pagamento (opcional)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={dataPagamento}
+                    onChangeText={(t) => setDataPagamento(maskDateInput(t))}
+                    placeholder="dd/mm/aaaa — vazio = hoje"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="numeric"
+                  />
+                  <Text style={styles.modalLabel}>Horário (opcional)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={horarioPagamento}
+                    onChangeText={(t) => setHorarioPagamento(maskTimeInput(t))}
+                    placeholder="HH:mm"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="numeric"
+                    maxLength={5}
+                  />
+                  <Text style={styles.modalLabel}>Valor pago (receita)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={valorRecebimento}
+                    onChangeText={setValorRecebimento}
+                    placeholder={aReceberDoDebtorEfetivo > 0 ? `Ex: ${aReceberDoDebtorEfetivo.toFixed(2).replace('.', ',')} (valor total)` : '0,00'}
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                  <Text style={styles.modalLabel}>Comprovante (opcional)</Text>
+                  {comprovanteUri ? (
+                    <View style={styles.comprovantePreview}>
+                      <Image source={{ uri: comprovanteUri }} style={styles.comprovanteImage} resizeMode="cover" />
+                      <TouchableOpacity
+                        style={styles.comprovanteRemover}
+                        onPress={() => { setComprovanteUri(null); setComprovanteBase64(null); }}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="#fff" />
+                        <Text style={styles.comprovanteRemoverText}>Remover</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={styles.comprovanteBtn} onPress={handleAnexarComprovante}>
+                      <Ionicons name="image-outline" size={22} color={colors.primary} />
+                      <Text style={styles.comprovanteBtnText}>Anexar comprovante (ex.: PIX)</Text>
+                      <Text style={styles.comprovanteBtnSub}>Se a imagem tiver data/hora, preenche automático</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+            </ScrollView>
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setModalRecebimentoVisible(false)}>
+              <TouchableOpacity style={styles.modalBtnCancel} onPress={handleFecharModalRecebimento}>
                 <Text style={styles.modalBtnCancelText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalBtnConfirm} onPress={handleConfirmarRecebimento}>
@@ -740,7 +828,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     width: '100%',
     maxWidth: 340,
+    maxHeight: '90%',
   },
+  modalScroll: { maxHeight: 360 },
   modalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.sm },
   modalSub: { fontSize: 13, color: colors.textMuted, marginBottom: spacing.md },
   modalLabel: { fontSize: 14, color: colors.textMuted, marginBottom: spacing.xs },
@@ -766,6 +856,34 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.lg,
   },
+  comprovanteBtn: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: borderRadius.md,
+    borderStyle: 'dashed',
+    marginBottom: spacing.lg,
+  },
+  comprovanteBtnText: { fontSize: 15, color: colors.primary, fontWeight: '500' },
+  comprovanteBtnSub: { fontSize: 12, color: colors.textMuted, width: '100%', marginLeft: 30 },
+  comprovantePreview: { marginBottom: spacing.lg },
+  comprovanteImage: { width: '100%', height: 160, borderRadius: borderRadius.md, backgroundColor: 'rgba(0,0,0,0.2)' },
+  comprovanteRemover: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.sm,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.spending,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  comprovanteRemoverText: { fontSize: 14, color: '#fff' },
   modalButtons: { flexDirection: 'row', gap: spacing.sm, justifyContent: 'flex-end' },
   modalBtnCancel: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
   modalBtnCancelText: { fontSize: 16, color: colors.textMuted },

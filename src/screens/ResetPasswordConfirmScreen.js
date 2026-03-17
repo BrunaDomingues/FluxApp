@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -15,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
+import { AppAlert } from '../components/AppAlert';
 import { validatePassword } from '../utils/authValidation';
 import { supabase } from '../lib/supabase';
 
@@ -42,12 +42,12 @@ export default function ResetPasswordConfirmScreen({ onDone }) {
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) {
-      Alert.alert('Erro', error.message || 'Não foi possível atualizar a senha. Tente novamente.');
+      AppAlert.alert('Erro', error.message || 'Não foi possível atualizar a senha. Tente novamente.');
       return;
     }
     clearRequiresNewPassword?.();
     if (typeof onDone === 'function') onDone();
-    Alert.alert('Senha atualizada', 'Sua senha foi alterada. Você já pode entrar com ela na próxima vez.');
+    AppAlert.alert('Senha atualizada', 'Sua senha foi alterada. Você já pode entrar com ela na próxima vez.');
   };
 
   return (

@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -15,11 +14,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
+import { AppAlert } from '../components/AppAlert';
 import { validateEmail, formatAuthErrorMessage } from '../utils/authValidation';
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { signIn, isSupabaseConfigured } = useAuth();
+  const addAccount = route.params?.addAccount === true;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,24 +29,25 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     const e = email.trim();
     if (!e) {
-      Alert.alert('E-mail obrigatório', 'Digite seu e-mail.');
+      AppAlert.alert('E-mail obrigatório', 'Digite seu e-mail.');
       return;
     }
     if (!validateEmail(e)) {
-      Alert.alert('E-mail inválido', 'Digite um e-mail válido.');
+      AppAlert.alert('E-mail inválido', 'Digite um e-mail válido.');
       return;
     }
     if (!password) {
-      Alert.alert('Senha obrigatória', 'Digite sua senha.');
+      AppAlert.alert('Senha obrigatória', 'Digite sua senha.');
       return;
     }
     setLoading(true);
-    const { error } = await signIn(e, password);
+    const { error } = await signIn(e, password, addAccount ? { addAccount: true } : undefined);
     setLoading(false);
     if (error) {
-      Alert.alert('Erro ao entrar', formatAuthErrorMessage(error.message) || 'Verifique e-mail e senha.');
+      AppAlert.alert('Erro ao entrar', formatAuthErrorMessage(error.message) || 'Verifique e-mail e senha.');
       return;
     }
+    if (addAccount) navigation.goBack();
   };
 
   if (!isSupabaseConfigured) {
@@ -73,6 +75,14 @@ export default function LoginScreen({ navigation }) {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        {addAccount && (
+          <View style={styles.addAccountHeader}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.addAccountBack}>
+              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.addAccountTitle}>Adicionar outra conta</Text>
+          </View>
+        )}
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.xl * 3 }]}
@@ -80,7 +90,7 @@ export default function LoginScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
         >
         <Text style={styles.logoTitle}>FluxApp</Text>
-        <Text style={styles.subtitle}>Controle financeiro na palma da mão</Text>
+        <Text style={styles.subtitle}>{addAccount ? 'Entre com a segunda conta' : 'Controle financeiro na palma da mão'}</Text>
 
         <Text style={styles.label}>E-mail</Text>
         <TextInput
@@ -131,19 +141,23 @@ export default function LoginScreen({ navigation }) {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.link}
-          onPress={() => navigation.navigate('ForgotPassword')}
-        >
-          <Text style={styles.linkText}>Esqueci minha senha</Text>
-        </TouchableOpacity>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Não tem conta?</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-            <Text style={styles.linkText}>Criar conta</Text>
+        {!addAccount && (
+          <TouchableOpacity
+            style={styles.link}
+            onPress={() => navigation.navigate('ForgotPassword')}
+          >
+            <Text style={styles.linkText}>Esqueci minha senha</Text>
           </TouchableOpacity>
-        </View>
+        )}
+
+        {!addAccount && (
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Não tem conta?</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+              <Text style={styles.linkText}>Criar conta</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
@@ -152,6 +166,16 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  addAccountHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  addAccountBack: { padding: spacing.xs, marginRight: spacing.sm },
+  addAccountTitle: { fontSize: 18, fontWeight: '600', color: colors.textPrimary },
   scroll: { flex: 1 },
   scrollContent: { padding: spacing.lg, paddingTop: spacing.xl },
   logoTitle: { fontSize: 28, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.xs },

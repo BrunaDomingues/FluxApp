@@ -5,8 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
+import { AppAlert } from '../components/AppAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
@@ -63,7 +63,7 @@ export default function PlanningScreen({ navigation }) {
   const temOrcamentoAnterior = (orcAnterior.total || 0) > 0;
 
   const handleExcluir = () => {
-    Alert.alert(
+    AppAlert.alert(
       'Excluir planejamento',
       `Excluir o planejamento de ${MESES[mes]}?`,
       [

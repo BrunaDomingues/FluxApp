@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native';
+import { AppAlert } from '../components/AppAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
@@ -23,26 +23,39 @@ export default function PerfilScreen({ navigation }) {
   const [nomeCompleto, setNomeCompleto] = useState('');
   const [cpfDisplay, setCpfDisplay] = useState('');
   const [loadingPerfilBanco, setLoadingPerfilBanco] = useState(false);
+  const currentUserIdRef = useRef(user?.id);
 
   useEffect(() => {
-    if (perfil) {
-      setNomeCompleto(perfil.nomeCompleto || '');
-      setCpfDisplay(perfil.cpf ? maskCpfInput(perfil.cpf) : '');
+    currentUserIdRef.current = user?.id;
+  }, [user?.id]);
+
+  // Limpa o formulário ao trocar de usuário para não mostrar dados de outra conta
+  useEffect(() => {
+    if (!user?.id) {
+      setNomeCompleto('');
+      setCpfDisplay('');
+      return;
     }
-  }, [perfil]);
+    setNomeCompleto('');
+    setCpfDisplay('');
+  }, [user?.id]);
 
-  // Carrega dados do perfil diretamente da tabela profiles do Supabase
+  // Carrega dados do perfil apenas da tabela profiles (sempre pela conta logada)
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    if (!user?.id) return;
+    if (!isSupabaseConfigured || !user?.id) return;
     setLoadingPerfilBanco(true);
+    const userId = user.id;
     supabase
       .from('profiles')
       .select('nome_completo, cpf, email')
-      .eq('id', user.id)
+      .eq('id', userId)
       .maybeSingle()
       .then(({ data, error }) => {
         if (error || !data) {
+          setLoadingPerfilBanco(false);
+          return;
+        }
+        if (currentUserIdRef.current !== userId) {
           setLoadingPerfilBanco(false);
           return;
         }
@@ -50,7 +63,6 @@ export default function PerfilScreen({ navigation }) {
         const cpf = data.cpf || '';
         setNomeCompleto(nome);
         setCpfDisplay(cpf ? maskCpfInput(cpf) : '');
-        // Sincroniza com o contexto do app para o restante das telas
         setPerfil({
           nomeCompleto: nome || undefined,
           cpf: cpf || undefined,
@@ -62,7 +74,7 @@ export default function PerfilScreen({ navigation }) {
   const handleSalvar = () => {
     const nome = nomeCompleto.trim();
     if (!nome) {
-      Alert.alert('Nome obrigatório', 'Digite seu nome completo.');
+      AppAlert.alert('Nome obrigatório', 'Digite seu nome completo.');
       return;
     }
 
@@ -73,7 +85,7 @@ export default function PerfilScreen({ navigation }) {
           .update({ nome_completo: nome })
           .eq('id', user.id);
         if (error) {
-          Alert.alert('Erro ao salvar', 'Não foi possível atualizar seu perfil. Tente novamente.');
+          AppAlert.alert('Erro ao salvar', 'Não foi possível atualizar seu perfil. Tente novamente.');
           return;
         }
       }
@@ -81,7 +93,7 @@ export default function PerfilScreen({ navigation }) {
         nomeCompleto: nome || undefined,
         cpf: perfil?.cpf || undefined,
       });
-      Alert.alert('Salvo', 'Seu perfil foi atualizado.');
+      AppAlert.alert('Salvo', 'Seu perfil foi atualizado.');
       navigation.goBack();
     };
 
@@ -94,12 +106,12 @@ export default function PerfilScreen({ navigation }) {
 
   const handleResetPassword = async () => {
     if (!user?.email) {
-      Alert.alert('Não foi possível', 'Não encontramos um e-mail vinculado à sua conta.');
+      AppAlert.alert('Não foi possível', 'Não encontramos um e-mail vinculado à sua conta.');
       return;
     }
     const { error } = await sendPasswordResetCode(user.email);
     if (error) {
-      Alert.alert('Erro', error.message || 'Não foi possível enviar o código.');
+      AppAlert.alert('Erro', error.message || 'Não foi possível enviar o código.');
       return;
     }
     navigation.navigate('ResetPasswordCode', { email: user.email });

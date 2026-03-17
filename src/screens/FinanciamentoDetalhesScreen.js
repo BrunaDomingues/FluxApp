@@ -8,8 +8,8 @@ import {
   TextInput,
   Modal,
   Pressable,
-  Alert,
 } from 'react-native';
+import { AppAlert } from '../components/AppAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
@@ -63,7 +63,7 @@ export default function FinanciamentoDetalhesScreen({ navigation, route }) {
   };
 
   const handleDesmarcarPago = (p) => {
-    Alert.alert(
+    AppAlert.alert(
       'Desmarcar parcela',
       `Desmarcar parcela ${p.numero} como paga?`,
       [
@@ -83,7 +83,7 @@ export default function FinanciamentoDetalhesScreen({ navigation, route }) {
   };
 
   const handleExcluir = () => {
-    Alert.alert(
+    AppAlert.alert(
       'Excluir financiamento',
       `Excluir "${financiamento.descricao}"?`,
       [

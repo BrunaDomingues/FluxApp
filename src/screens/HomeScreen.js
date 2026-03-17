@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius, categoryChartColors } from '../constants/theme';
 import DonutChart from '../components/DonutChart';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const MESES_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -35,7 +37,22 @@ function getCatIcon(cat) {
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { contas, cartoes, saldoContas, categorias, transacoes, getGastoPorCategoriaNoMes, getReceitasNoMes, getOrcamento, cardsDaTelaInicial, cardsOrdem, financiamentos, getProximasParcelasCartao, updateTransacao, objetivos, getTotalAReceberRestante } = useApp();
+  const { contas, cartoes, saldoContas, categorias, transacoes, getGastoPorCategoriaNoMes, getReceitasNoMes, getOrcamento, cardsDaTelaInicial, cardsOrdem, financiamentos, getProximasParcelasCartao, updateTransacao, objetivos, getTotalAReceberRestante, perfil } = useApp();
+  const { getMyPendingSharedExpenses, getPaymentSignaledAwaitingConfirmation, user: authUser } = useAuth();
+  const nomeUsuarioAtivo = perfil?.nomeCompleto?.trim().split(' ')[0] || authUser?.email || authUser?.user_metadata?.nome_completo || 'Usuário';
+  const [aPagarCompartilhado, setAPagarCompartilhado] = useState(0);
+  const [pagamentosSinalizadosCount, setPagamentosSinalizadosCount] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      getMyPendingSharedExpenses?.().then(({ data }) => {
+        const total = (Array.isArray(data) ? data : []).reduce((s, i) => s + (i.valor || 0), 0);
+        setAPagarCompartilhado(total);
+      });
+      getPaymentSignaledAwaitingConfirmation?.().then(({ data }) => {
+        setPagamentosSinalizadosCount(Array.isArray(data) ? data.length : 0);
+      });
+    }, [getMyPendingSharedExpenses, getPaymentSignaledAwaitingConfirmation])
+  );
   const cartoesAtivos = cartoes.filter((c) => c.ativo !== false);
   const cards = cardsDaTelaInicial || {};
   const ordemBase = Array.isArray(cardsOrdem) && cardsOrdem.length > 0 ? cardsOrdem : [
@@ -141,6 +158,42 @@ export default function HomeScreen({ navigation }) {
                   >
                     <Ionicons name="cash-outline" size={18} color="#fff" />
                     <Text style={styles.receberBtnText}>Registrar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {aPagarCompartilhado > 0 && (
+                <View style={[styles.receberRow, { marginTop: aReceberTerceiros > 0 ? spacing.sm : 0 }]}>
+                  <View style={styles.receberInfo}>
+                    <Text style={styles.receberTitle}>Despesas compartilhadas</Text>
+                    <Text style={styles.receberSub}>
+                      Você deve R$ {aPagarCompartilhado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (sua parte)
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.receberBtn, { backgroundColor: colors.spending }]}
+                    onPress={() => navigation.navigate('DespesasCompartilhadasPendentes')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="card-outline" size={18} color="#fff" />
+                    <Text style={styles.receberBtnText}>Ver / Pagar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {pagamentosSinalizadosCount > 0 && (
+                <View style={[styles.receberRow, { marginTop: (aReceberTerceiros > 0 || aPagarCompartilhado > 0) ? spacing.sm : 0 }]}>
+                  <View style={styles.receberInfo}>
+                    <Text style={styles.receberTitle}>Pagamentos sinalizados</Text>
+                    <Text style={styles.receberSub}>
+                      {pagamentosSinalizadosCount === 1 ? '1 pessoa marcou que te pagou' : `${pagamentosSinalizadosCount} pessoas marcaram que te pagaram`}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.receberBtn, { backgroundColor: colors.positive }]}
+                    onPress={() => navigation.navigate('PagamentosSinalizados')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
+                    <Text style={styles.receberBtnText}>Confirmar</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -773,7 +826,10 @@ export default function HomeScreen({ navigation }) {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: (spacing.xl * 2) + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header: perfil | mês | presente */}
+        {/* Header: nome do usuário ativo | mês */}
+        <View style={styles.userNameRow}>
+          <Text style={styles.userNameText}>Olá, {nomeUsuarioAtivo}!</Text>
+        </View>
         <View style={styles.topHeader}>
           {/*<TouchableOpacity style={styles.headerAvatarWrap} activeOpacity={0.8}>
             <View style={styles.headerAvatar}>
@@ -925,6 +981,15 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: spacing.xl * 2,
+  },
+  userNameRow: {
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  userNameText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   topHeader: {
     flexDirection: 'row',

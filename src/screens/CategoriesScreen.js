@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   Modal,
   Pressable,
 } from 'react-native';
@@ -14,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { AppAlert } from '../components/AppAlert';
 import { ICONE_PADRAO } from '../constants/categorias';
 
 export default function CategoriesScreen({ navigation }) {
@@ -28,7 +28,7 @@ export default function CategoriesScreen({ navigation }) {
   const handleSalvarCategoria = () => {
     const n = (nome || '').trim();
     if (!n) {
-      Alert.alert('Atenção', 'Informe o nome da categoria.');
+      AppAlert.alert('Atenção', 'Informe o nome da categoria.');
       return;
     }
     addCategoria({ nome: n, tipo });

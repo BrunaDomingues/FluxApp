@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   Modal,
   Pressable,
 } from 'react-native';
@@ -14,7 +13,9 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/currency';
+import { AppAlert } from '../components/AppAlert';
 import { maskDateInput, parseDateDDMM } from '../utils/dateMask';
 import { ICONE_PADRAO } from '../constants/categorias';
 
@@ -32,6 +33,7 @@ export default function AddTransactionScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const bottomSafe = Math.max(insets.bottom, 48);
   const { categorias, contas, cartoes, addTransacao, updateTransacao, removeTransacao, transacoes, usuarios, getPrincipalUserId } = useApp();
+  const { user, registerSharedExpenseParts } = useAuth();
   const editar = route?.params?.editar;
   const isEditMode = !!editar;
 
@@ -153,11 +155,11 @@ export default function AddTransactionScreen({ navigation, route }) {
 
   const handleSalvar = () => {
     if (valorNum <= 0) {
-      Alert.alert('Atenção', 'Informe o valor.');
+      AppAlert.alert('Atenção', 'Informe o valor.');
       return;
     }
     if (!isCartao && !isTransferencia && !contaId) {
-      Alert.alert('Atenção', 'Selecione uma conta para abater ou somar o valor.');
+      AppAlert.alert('Atenção', 'Selecione uma conta para abater ou somar o valor.');
       return;
     }
     if (isEditMode) {
@@ -169,7 +171,7 @@ export default function AddTransactionScreen({ navigation, route }) {
         });
       } else {
         if (!categoriaId) {
-          Alert.alert('Atenção', 'Selecione uma categoria.');
+          AppAlert.alert('Atenção', 'Selecione uma categoria.');
           return;
         }
         const cat = categorias.find((c) => c.id === categoriaId);
@@ -193,13 +195,13 @@ export default function AddTransactionScreen({ navigation, route }) {
     }
     if (isTransferencia) {
       if (contasVisiveis.length < 2) {
-        Alert.alert('Atenção', 'Cadastre pelo menos duas contas para transferir.');
+        AppAlert.alert('Atenção', 'Cadastre pelo menos duas contas para transferir.');
         return;
       }
       const contaOrigemId = contaId;
       const destId = contaDestinoId || contasVisiveis.find((c) => c.id !== contaOrigemId)?.id;
       if (!destId || destId === contaOrigemId) {
-        Alert.alert('Atenção', 'Selecione contas diferentes.');
+        AppAlert.alert('Atenção', 'Selecione contas diferentes.');
         return;
       }
       const transferenciaId = Date.now().toString() + '_' + Math.random().toString(36).slice(2);
@@ -209,14 +211,14 @@ export default function AddTransactionScreen({ navigation, route }) {
       return;
     }
     if (!categoriaId) {
-      Alert.alert('Atenção', 'Selecione uma categoria.');
+      AppAlert.alert('Atenção', 'Selecione uma categoria.');
       return;
     }
     if (divisaoAtiva && tipoDivisao === 'porcentagem') {
       const partesIds = [principalId, ...usuariosDivisao].filter(Boolean);
       const sum = partesIds.reduce((s, id) => s + (parseFloat(porcentagens[id]) || 0), 0);
       if (partesIds.length >= 2 && Math.abs(sum - 100) > 0.01) {
-        Alert.alert('Atenção', 'A soma das porcentagens deve ser 100%.');
+        AppAlert.alert('Atenção', 'A soma das porcentagens deve ser 100%.');
         return;
       }
     }
@@ -225,7 +227,7 @@ export default function AddTransactionScreen({ navigation, route }) {
     const isParcelado = isCartao && numParcelas > 1;
     const valorEnvio = isParcelado ? Math.abs(valorNum) / numParcelas : (tipo === 'entrada' ? valorNum : -Math.abs(valorNum));
     const { data, mes, ano } = getDataMesAno();
-    addTransacao({
+    const payload = {
       tipo: isCartao ? 'despesa_cartao' : tipo === 'entrada' ? 'entrada' : 'saida',
       valor: tipo === 'entrada' ? valorNum : (isParcelado ? -valorEnvio : -Math.abs(valorNum)),
       categoriaId,
@@ -243,12 +245,27 @@ export default function AddTransactionScreen({ navigation, route }) {
       mes,
       ano,
       local: local.trim() || undefined,
-    });
+    };
+    const nova = addTransacao(payload);
+    if (nova?.divisao?.partes && user?.id && (nova.tipo === 'saida' || nova.tipo === 'despesa_cartao')) {
+      const total = Math.abs(nova.valor || 0);
+      const parts = nova.divisao.partes
+        .filter((p) => p.userId !== principalId && String(p.userId).length >= 30)
+        .map((p) => {
+          let pct = p.porcentagem;
+          if (pct == null && nova.divisao.tipo === 'igual') pct = 100 / nova.divisao.partes.length;
+          const valor = Math.round(total * ((pct || 0) / 100) * 100) / 100;
+          return { for_user_id: p.userId, valor };
+        });
+      if (parts.length > 0) {
+        registerSharedExpenseParts(user.id, nova.id, nova.descricao || 'Despesa compartilhada', parts);
+      }
+    }
     navigation.goBack();
   };
 
   const handleExcluir = () => {
-    Alert.alert(
+    AppAlert.alert(
       'Excluir transação',
       isTransferencia
         ? 'Excluir esta transferência? As duas movimentações serão removidas.'

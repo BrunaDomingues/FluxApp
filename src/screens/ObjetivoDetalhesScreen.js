@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
-  Alert,
   Dimensions,
   TextInput,
 } from 'react-native';
@@ -16,6 +15,7 @@ import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { formatBRL, parseToRaw, rawToNumber } from '../utils/currency';
+import { AppAlert } from '../components/AppAlert';
 import { parseLocalDateFromYYYYMMDD } from '../utils/dateMask';
 
 function formatDataLimite(str) {
@@ -80,7 +80,7 @@ export default function ObjetivoDetalhesScreen({ navigation, route }) {
   };
 
   const handleExcluirDeposito = (dep) => {
-    Alert.alert(
+    AppAlert.alert(
       'Excluir depósito',
       `Excluir depósito de R$ ${(dep.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}?`,
       [
@@ -112,7 +112,7 @@ export default function ObjetivoDetalhesScreen({ navigation, route }) {
 
   const handleExcluir = () => {
     setMenuVisible(false);
-    Alert.alert(
+    AppAlert.alert(
       'Excluir objetivo',
       `Excluir "${objetivo.nome}"?`,
       [

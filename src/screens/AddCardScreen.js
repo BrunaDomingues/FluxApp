@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   Switch,
   Modal,
   Pressable,
@@ -18,6 +17,7 @@ import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { bandeirasCartao } from '../constants/bandeiras';
 import { useApp } from '../context/AppContext';
+import { AppAlert } from '../components/AppAlert';
 import { formatBRL, parseToRaw, rawToNumber, numberToRaw } from '../utils/currency';
 
 export default function AddCardScreen({ navigation, route }) {
@@ -66,7 +66,7 @@ export default function AddCardScreen({ navigation, route }) {
   const handleSalvar = () => {
     const n = (nome || '').trim();
     if (!n) {
-      Alert.alert('Atenção', 'Informe o nome do cartão.');
+      AppAlert.alert('Atenção', 'Informe o nome do cartão.');
       return;
     }
     if (isEditMode) {
@@ -94,7 +94,7 @@ export default function AddCardScreen({ navigation, route }) {
   };
 
   const handleExcluir = () => {
-    Alert.alert(
+    AppAlert.alert(
       'Excluir cartão',
       `Excluir "${nome || editar?.nome}"?`,
       [

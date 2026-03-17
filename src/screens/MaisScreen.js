@@ -6,8 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
 } from 'react-native';
+import { AppAlert } from '../components/AppAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
@@ -52,7 +52,7 @@ export default function MaisScreen({ navigation }) {
   const [aba, setAba] = useState(ABA_GERENCIAR);
   const [modoViagem, setModoViagem] = useState(false);
   const { resetAllData } = useApp();
-  const { isAuthenticated, signOut } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const abas = [
     { key: ABA_GERENCIAR, label: 'GERENCIAR' },
@@ -65,22 +65,19 @@ export default function MaisScreen({ navigation }) {
     if (aba === ABA_SOBRE) return opcoesSobre;
     const list = [...opcoesGerenciar];
     if (isAuthenticated) {
-      list.push({ id: 'sair', label: 'Sair da conta', icon: 'log-out-outline', action: 'signOut' });
+      list.push({ id: 'contas', label: 'Contas', icon: 'people-outline', screen: 'GerenciarContas' });
     }
     return list;
   };
 
-  const handleOpcao = (op) => {
+  const handleOpcao = async (op) => {
     if (op.toggle) return;
-    if (op.action === 'signOut') {
-      Alert.alert('Sair', 'Deseja sair da sua conta?', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sair', onPress: () => signOut?.() },
-      ]);
+    if (op.screen) {
+      navigation.navigate(op.screen);
       return;
     }
     if (op.id === 'zerarDados') {
-      Alert.alert(
+      AppAlert.alert(
         'Zerar dados do app',
         'Isso vai apagar contas, transações, cartões, objetivos, financiamentos, usuários, recebimentos e configurações. Essa ação não pode ser desfeita.',
         [
@@ -89,12 +86,24 @@ export default function MaisScreen({ navigation }) {
             text: 'Zerar',
             style: 'destructive',
             onPress: () => {
-              Alert.alert(
+              AppAlert.alert(
                 'Confirmar',
                 'Tem certeza? Todos os dados serão removidos deste aparelho.',
                 [
                   { text: 'Cancelar', style: 'cancel' },
-                  { text: 'Sim, zerar tudo', style: 'destructive', onPress: () => resetAllData?.() },
+                  {
+                    text: 'Sim, zerar tudo',
+                    style: 'destructive',
+                    onPress: async () => {
+                      const result = await resetAllData?.();
+                      if (result?.error) {
+                        AppAlert.alert(
+                          'Erro ao zerar na nuvem',
+                          result.error?.message || 'Os dados foram zerados no aparelho, mas não foi possível atualizar na nuvem. Tente de novo mais tarde.'
+                        );
+                      }
+                    },
+                  },
                 ]
               );
             },
@@ -105,6 +114,7 @@ export default function MaisScreen({ navigation }) {
     }
     if (op.screen) {
       navigation.navigate(op.screen);
+      return;
     }
   };
 

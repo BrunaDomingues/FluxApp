@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -15,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
+import { AppAlert } from '../components/AppAlert';
 import { validateEmail, formatAuthErrorMessage } from '../utils/authValidation';
 
 export default function ForgotPasswordScreen({ navigation }) {
@@ -27,11 +27,11 @@ export default function ForgotPasswordScreen({ navigation }) {
   const handleSend = async () => {
     const e = email.trim();
     if (!e) {
-      Alert.alert('E-mail obrigatório', 'Digite seu e-mail para receber o código de recuperação.');
+      AppAlert.alert('E-mail obrigatório', 'Digite seu e-mail para receber o código de recuperação.');
       return;
     }
     if (!validateEmail(e)) {
-      Alert.alert('E-mail inválido', 'Digite um e-mail válido.');
+      AppAlert.alert('E-mail inválido', 'Digite um e-mail válido.');
       return;
     }
     setLoading(true);
@@ -39,7 +39,7 @@ export default function ForgotPasswordScreen({ navigation }) {
     const { error } = await sendPasswordResetCode(e);
     setLoading(false);
     if (error) {
-      Alert.alert('Erro', formatAuthErrorMessage(error.message) || 'Não foi possível enviar o código. Tente de novo.');
+      AppAlert.alert('Erro', formatAuthErrorMessage(error.message) || 'Não foi possível enviar o código. Tente de novo.');
       return;
     }
     setSent(true);

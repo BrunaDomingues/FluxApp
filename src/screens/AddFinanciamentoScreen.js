@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Modal,
   Pressable,
 } from 'react-native';
@@ -14,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { AppAlert } from '../components/AppAlert';
 import { formatBRL, parseToRaw, rawToNumber } from '../utils/currency';
 
 export default function AddFinanciamentoScreen({ navigation }) {
@@ -36,11 +36,11 @@ export default function AddFinanciamentoScreen({ navigation }) {
   const handleSalvar = () => {
     const desc = (descricao || '').trim();
     if (!desc) {
-      Alert.alert('Atenção', 'Informe a descrição do financiamento (ex.: Moto, Carro).');
+      AppAlert.alert('Atenção', 'Informe a descrição do financiamento (ex.: Moto, Carro).');
       return;
     }
     if (valorNum <= 0) {
-      Alert.alert('Atenção', 'Informe o valor da parcela.');
+      AppAlert.alert('Atenção', 'Informe o valor da parcela.');
       return;
     }
     addFinanciamento({
