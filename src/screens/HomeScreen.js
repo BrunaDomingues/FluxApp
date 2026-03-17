@@ -1000,7 +1000,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl * 2,
   },
   userNameRow: {
-    paddingHorizontal: spacing.md,
     marginBottom: spacing.xs,
   },
   userNameText: {

@@ -41,6 +41,7 @@ import PagamentosSinalizadosScreen from './src/screens/PagamentosSinalizadosScre
 import CobrancasRecebidasScreen from './src/screens/CobrancasRecebidasScreen';
 import PerfilScreen from './src/screens/PerfilScreen';
 import GerenciarContasScreen from './src/screens/GerenciarContasScreen';
+import LembreteDiarioScreen from './src/screens/LembreteDiarioScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
@@ -107,6 +108,7 @@ function MainStack() {
       <Stack.Screen name="CobrancasRecebidas" component={CobrancasRecebidasScreen} />
       <Stack.Screen name="Perfil" component={PerfilScreen} />
       <Stack.Screen name="GerenciarContas" component={GerenciarContasScreen} />
+      <Stack.Screen name="LembreteDiario" component={LembreteDiarioScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="ResetPasswordCode" component={ResetPasswordCodeScreen} />
     </Stack.Navigator>

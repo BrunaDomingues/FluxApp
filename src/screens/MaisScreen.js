@@ -23,6 +23,8 @@ const opcoesGerenciar = [
   { id: 'contas', label: 'Contas', icon: 'business-outline', screen: 'Contas' },
   { id: 'cartao', label: 'Cartão', icon: 'card-outline', screen: 'Cartoes' },
   { id: 'financiamentos', label: 'Financiamentos', icon: 'document-text-outline', screen: 'Financiamentos' },
+  { id: 'graficos', label: 'Gráficos', icon: 'pie-chart-outline', screen: 'BalancoMensal' },
+  { id: 'balancoMensal', label: 'Balanço mensal', icon: 'stats-chart-outline', screen: 'BalancoMensal' },
   { id: 'categorias', label: 'Categorias', icon: 'pricetag-outline', screen: 'Categories' },
   { id: 'tags', label: 'Tags', icon: 'pricetags-outline', screen: null },
   { id: 'objetivos', label: 'Objetivos', icon: 'flag-outline', screen: 'Objetivos' },
@@ -33,10 +35,12 @@ const opcoesGerenciar = [
   { id: 'cards', label: 'Cards da tela inicial', icon: 'grid-outline', screen: 'CardsDaTelaInicial' },
   { id: 'calculadoras', label: 'Calculadoras', icon: 'calculator-outline', screen: null },
   { id: 'modoViagem', label: 'Modo viagem', icon: 'airplane-outline', toggle: true },
-  { id: 'lembrete', label: 'Lembrete diário', icon: 'notifications-outline', screen: null },
+  { id: 'lembrete', label: 'Lembrete diário', icon: 'notifications-outline', screen: 'LembreteDiario' },
 ];
 
 const opcoesGeral = [
+  { id: 'graficos', label: 'Gráficos', icon: 'pie-chart-outline', screen: 'BalancoMensal' },
+  { id: 'balancoMensal', label: 'Balanço mensal', icon: 'stats-chart-outline', screen: 'BalancoMensal' },
   { id: 'moeda', label: 'Moeda', icon: 'cash-outline', value: 'Real (BRL)' },
   { id: 'idioma', label: 'Idioma', icon: 'language-outline', value: 'Português' },
 ];
