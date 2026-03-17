@@ -1039,18 +1039,93 @@ export function AppProvider({ children }) {
   }, []);
 
   const updateParcelaFinanciamento = useCallback((financiamentoId, numeroParcela, payload) => {
+    let prevParcela = null;
+    let prevFin = null;
+    let nextParcela = null;
+
     setFinanciamentosState((prev) =>
       prev.map((f) => {
         if (f.id !== financiamentoId) return f;
-        return {
-          ...f,
-          parcelas: (f.parcelas || []).map((p) =>
-            p.numero === numeroParcela ? { ...p, ...payload } : p
-          ),
-        };
+        prevFin = f;
+        const parcelasNext = (f.parcelas || []).map((p) => {
+          if (p.numero !== numeroParcela) return p;
+          prevParcela = p;
+          nextParcela = { ...p, ...payload };
+          return nextParcela;
+        });
+        return { ...f, parcelas: parcelasNext };
       })
     );
-  }, []);
+
+    // Side effects: ao marcar como paga, cria uma despesa (saida) na data de pagamento.
+    // Ao desmarcar, remove a despesa criada automaticamente (se existir).
+    Promise.resolve().then(() => {
+      if (!prevParcela || !prevFin || !nextParcela) return;
+
+      const virouPaga = prevParcela.pago !== true && nextParcela.pago === true;
+      const virouNaoPaga = prevParcela.pago === true && nextParcela.pago !== true;
+
+      if (virouNaoPaga && prevParcela.transacaoId) {
+        removeTransacao(prevParcela.transacaoId);
+        // limpa o vínculo
+        setFinanciamentosState((prev) =>
+          prev.map((f) => {
+            if (f.id !== financiamentoId) return f;
+            return {
+              ...f,
+              parcelas: (f.parcelas || []).map((p) =>
+                p.numero === numeroParcela ? { ...p, transacaoId: null } : p
+              ),
+            };
+          })
+        );
+        return;
+      }
+
+      if (!virouPaga) return;
+
+      const valor = Math.round(Math.max(0, Number(nextParcela.valorPago ?? nextParcela.valorPadrao ?? 0)) * 100) / 100;
+      if (valor <= 0) return;
+
+      const hoje = new Date();
+      const parsed = nextParcela.dataPagamento && typeof nextParcela.dataPagamento === 'string'
+        ? parseDateDDMM(String(nextParcela.dataPagamento).trim())
+        : null;
+      const data = parsed
+        ? `${String(parsed.day).padStart(2, '0')}/${String(parsed.month + 1).padStart(2, '0')}/${parsed.year}`
+        : hoje.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const mesTx = parsed ? parsed.month : hoje.getMonth();
+      const anoTx = parsed ? parsed.year : hoje.getFullYear();
+
+      const tx = addTransacao({
+        tipo: 'saida',
+        valor: -Math.abs(valor),
+        descricao: `Parcela ${numeroParcela} — ${prevFin.descricao || 'Financiamento'}`,
+        contaId: prevFin.contaId || (contas.filter((c) => !c.arquivada)[0]?.id ?? 'carteira'),
+        data,
+        mes: mesTx,
+        ano: anoTx,
+        categoriaId: 'sai-8', // Outros
+        fixa: true,
+        financiamentoId,
+        parcelaNumero: numeroParcela,
+      });
+
+      if (tx?.id) {
+        setFinanciamentosState((prev) =>
+          prev.map((f) => {
+            if (f.id !== financiamentoId) return f;
+            return {
+              ...f,
+              parcelas: (f.parcelas || []).map((p) =>
+                p.numero === numeroParcela ? { ...p, transacaoId: tx.id } : p
+              ),
+            };
+          })
+        );
+      }
+    });
+  }, [addTransacao, removeTransacao, contas]);
 
   const removeFinanciamento = useCallback((id) => {
     setFinanciamentosState((prev) => prev.filter((f) => f.id !== id));

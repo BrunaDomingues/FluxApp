@@ -28,7 +28,7 @@ module.exports = {
     },
     web: { favicon: './assets/favicon.png' },
     scheme: 'fluxapp',
-    plugins: ['expo-asset', 'expo-font', 'expo-av', 'expo-sqlite'],
+    plugins: ['expo-asset', 'expo-font', 'expo-av', 'expo-sqlite', '@react-native-community/datetimepicker'],
     extra: {
       eas: { projectId: '9c184509-fb6f-424e-b46e-671f92f28da3' },
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || '',

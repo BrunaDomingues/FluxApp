@@ -322,8 +322,9 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
@@ -355,8 +356,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   valor: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '700',
+    textAlign: 'right',
+    alignSelf: 'flex-end',
   },
   valorEntrada: {
     color: colors.positive,

@@ -15,6 +15,8 @@ import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { formatBRL, parseToRaw, rawToNumber } from '../utils/currency';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { parseDateDDMM } from '../utils/dateMask';
 
 export default function FinanciamentoDetalhesScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -26,6 +28,8 @@ export default function FinanciamentoDetalhesScreen({ navigation, route }) {
   const [modalParcela, setModalParcela] = useState(null);
   const [valorPago, setValorPago] = useState('');
   const [dataPagamento, setDataPagamento] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerDate, setPickerDate] = useState(() => new Date());
 
   if (!financiamento) {
     navigation.goBack();
@@ -212,13 +216,18 @@ export default function FinanciamentoDetalhesScreen({ navigation, route }) {
               keyboardType="numeric"
             />
             <Text style={styles.label}>Data do pagamento (opcional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex.: 10/03/2026"
-              placeholderTextColor={colors.textMuted}
-              value={dataPagamento}
-              onChangeText={setDataPagamento}
-            />
+            <TouchableOpacity
+              style={styles.datePickerRow}
+              activeOpacity={0.8}
+              onPress={() => {
+                const parsed = parseDateDDMM(String(dataPagamento || '').trim());
+                setPickerDate(parsed ? new Date(parsed.year, parsed.month, parsed.day) : new Date());
+                setPickerOpen(true);
+              }}
+            >
+              <Text style={styles.datePickerText}>{dataPagamento || 'Selecionar data'}</Text>
+              <Ionicons name="calendar-outline" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setModalParcela(null)}>
                 <Text style={styles.modalBtnCancelText}>Cancelar</Text>
@@ -230,6 +239,26 @@ export default function FinanciamentoDetalhesScreen({ navigation, route }) {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {pickerOpen && (
+        <DateTimePicker
+          value={pickerDate}
+          mode="date"
+          display="calendar"
+          onChange={(_, selected) => {
+            if (!selected) {
+              setPickerOpen(false);
+              return;
+            }
+            const d = new Date(selected);
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = String(d.getFullYear());
+            setDataPagamento(`${dd}/${mm}/${yyyy}`);
+            setPickerOpen(false);
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -323,6 +352,16 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
+  datePickerRow: {
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  datePickerText: { fontSize: 16, color: colors.textPrimary, fontWeight: '700' },
   modalButtons: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
   modalBtnCancel: {
     flex: 1,
