@@ -151,7 +151,7 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) return { data, error };
     const { addAccount } = options;
-    const { data: { session: s } } = await supabase.auth.getSession();
+    const s = data?.session;
     if (s?.refresh_token) {
       const slot1 = await getStoredSlot(1);
       const slot2 = await getStoredSlot(2);
@@ -170,6 +170,8 @@ export function AuthProvider({ children }) {
         await setStoredSlot(active, slotData);
       }
     }
+    setSession(data?.session ?? null);
+    setUser(data?.user ?? null);
     return { data, error: null };
   }, []);
 

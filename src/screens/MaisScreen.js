@@ -65,7 +65,7 @@ export default function MaisScreen({ navigation }) {
     if (aba === ABA_SOBRE) return opcoesSobre;
     const list = [...opcoesGerenciar];
     if (isAuthenticated) {
-      list.push({ id: 'contas', label: 'Contas', icon: 'people-outline', screen: 'GerenciarContas' });
+      list.push({ id: 'gerenciarContas', label: 'Contas logadas', icon: 'people-outline', screen: 'GerenciarContas' });
     }
     return list;
   };
