@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { categoriasPadrao } from '../constants/categorias';
 import {
   loadCategorias as loadCategoriasStorage,
@@ -28,6 +28,8 @@ import {
   clearAllFluxAppData,
 } from '../utils/storage';
 import { parseDateDDMM } from '../utils/dateMask';
+import { useAuth } from './AuthContext';
+import { loadUserData, saveUserData } from '../lib/supabaseSync';
 
 const PRINCIPAL_ID = 'principal';
 
@@ -53,6 +55,11 @@ const CARDS_ORDER_DEFAULT = [
 ];
 
 export function AppProvider({ children }) {
+  const { user } = useAuth();
+  const [supabaseFetchDone, setSupabaseFetchDone] = useState(false);
+  const [hydratedFromSupabase, setHydratedFromSupabase] = useState(false);
+  const saveToSupabaseTimeoutRef = useRef(null);
+
   const [contas, setContas] = useState([
     { id: 'carteira', nome: 'Carteira', saldo: 0 },
   ]);
@@ -99,6 +106,53 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    if (!user?.id) {
+      setSupabaseFetchDone(true);
+      return;
+    }
+    let cancelled = false;
+    loadUserData(user.id).then((data) => {
+      if (cancelled) return;
+      setSupabaseFetchDone(true);
+      if (data && (data.contas?.length > 0 || data.transacoes?.length > 0 || Object.keys(data.orcamentoMensal || {}).length > 0 || data.usuarios?.length > 0 || data.cartoes?.length > 0 || data.objetivos?.length > 0 || data.financiamentos?.length > 0 || data.recebimentosUsuarios?.length > 0 || data.cobrancasRecebidas?.length > 0 || data.perfil)) {
+        if (data.contas?.length > 0) setContas(data.contas);
+        if (data.cartoes?.length >= 0) setCartoes(data.cartoes || []);
+        if (data.transacoes?.length >= 0) setTransacoes(data.transacoes || []);
+        if (data.objetivos?.length >= 0) setObjetivosState(data.objetivos || []);
+        if (data.financiamentos?.length >= 0) setFinanciamentosState(data.financiamentos || []);
+        if (data.orcamentoMensal && typeof data.orcamentoMensal === 'object') setOrcamentoMensalState(data.orcamentoMensal);
+        if (data.recebimentosUsuarios?.length >= 0) setRecebimentosDeUsuarios(data.recebimentosUsuarios || []);
+        if (data.cobrancasRecebidas?.length >= 0) setCobrancasRecebidas(data.cobrancasRecebidas || []);
+        if (data.perfil && typeof data.perfil === 'object') setPerfilState(data.perfil);
+        if (data.usuarios?.length >= 0) {
+          const outros = (data.usuarios || []).filter((u) => u.id !== PRINCIPAL_ID && !u.principal);
+          setUsuariosOutros(outros);
+        }
+        if (Array.isArray(data.categorias) && data.categorias.length > 0) setCategorias(data.categorias);
+        if (data.cardsTelaInicial && typeof data.cardsTelaInicial === 'object') {
+          if (data.cardsTelaInicial.enabled) setCardsDaTelaInicialState((p) => ({ ...p, ...data.cardsTelaInicial.enabled }));
+          if (Array.isArray(data.cardsTelaInicial.order)) setCardsOrdemState(data.cardsTelaInicial.order);
+        }
+        setContasLoaded(true);
+        setCartoesLoaded(true);
+        setTransacoesLoaded(true);
+        setObjetivosLoaded(true);
+        setFinanciamentosLoaded(true);
+        setOrcamentoLoaded(true);
+        setUsuariosLoaded(true);
+        setRecebimentosLoaded(true);
+        setCobrancasRecebidasLoaded(true);
+        setPerfilLoaded(true);
+        setCategoriasLoaded(true);
+        setCardsLoaded(true);
+        setHydratedFromSupabase(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
     let cancelled = false;
     loadCategoriasStorage().then((saved) => {
       if (!cancelled && saved && saved.length > 0) {
@@ -107,9 +161,10 @@ export function AppProvider({ children }) {
       if (!cancelled) setCategoriasLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
+    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
     let cancelled = false;
     loadCardsStorage().then((saved) => {
       if (!cancelled && saved && typeof saved === 'object') {
@@ -121,7 +176,7 @@ export function AppProvider({ children }) {
       if (!cancelled) setCardsLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
     if (!cardsLoaded) return;
@@ -129,6 +184,7 @@ export function AppProvider({ children }) {
   }, [cardsDaTelaInicial, cardsOrdem, cardsLoaded]);
 
   useEffect(() => {
+    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
     let cancelled = false;
     loadFinanciamentosStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -137,7 +193,7 @@ export function AppProvider({ children }) {
       if (!cancelled) setFinanciamentosLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
     if (!financiamentosLoaded) return;
@@ -145,6 +201,7 @@ export function AppProvider({ children }) {
   }, [financiamentos, financiamentosLoaded]);
 
   useEffect(() => {
+    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
     let cancelled = false;
     loadObjetivosStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -153,7 +210,7 @@ export function AppProvider({ children }) {
       if (!cancelled) setObjetivosLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
     if (!objetivosLoaded) return;
@@ -161,6 +218,7 @@ export function AppProvider({ children }) {
   }, [objetivos, objetivosLoaded]);
 
   useEffect(() => {
+    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
     let cancelled = false;
     loadContasStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved) && saved.length > 0) {
@@ -169,7 +227,7 @@ export function AppProvider({ children }) {
       if (!cancelled) setContasLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
     if (!contasLoaded) return;
@@ -177,6 +235,7 @@ export function AppProvider({ children }) {
   }, [contas, contasLoaded]);
 
   useEffect(() => {
+    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
     let cancelled = false;
     loadCartoesStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -185,7 +244,7 @@ export function AppProvider({ children }) {
       if (!cancelled) setCartoesLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
     if (!cartoesLoaded) return;
@@ -193,6 +252,7 @@ export function AppProvider({ children }) {
   }, [cartoes, cartoesLoaded]);
 
   useEffect(() => {
+    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
     let cancelled = false;
     loadTransacoesStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -201,7 +261,7 @@ export function AppProvider({ children }) {
       if (!cancelled) setTransacoesLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
     if (!transacoesLoaded) return;
@@ -209,6 +269,7 @@ export function AppProvider({ children }) {
   }, [transacoes, transacoesLoaded]);
 
   useEffect(() => {
+    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
     let cancelled = false;
     loadOrcamentoMensalStorage().then((saved) => {
       if (!cancelled && saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
@@ -217,7 +278,7 @@ export function AppProvider({ children }) {
       if (!cancelled) setOrcamentoLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
     if (!orcamentoLoaded) return;
@@ -225,6 +286,7 @@ export function AppProvider({ children }) {
   }, [orcamentoMensal, orcamentoLoaded]);
 
   useEffect(() => {
+    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
     let cancelled = false;
     loadUsuariosStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -233,7 +295,7 @@ export function AppProvider({ children }) {
       if (!cancelled) setUsuariosLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
     if (!usuariosLoaded) return;
@@ -245,6 +307,7 @@ export function AppProvider({ children }) {
   }, [usuariosOutros, perfil, usuariosLoaded]);
 
   useEffect(() => {
+    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
     let cancelled = false;
     loadRecebimentosUsuariosStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -253,7 +316,7 @@ export function AppProvider({ children }) {
       if (!cancelled) setRecebimentosLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
     if (!recebimentosLoaded) return;
@@ -261,6 +324,7 @@ export function AppProvider({ children }) {
   }, [recebimentosDeUsuarios, recebimentosLoaded]);
 
   useEffect(() => {
+    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
     let cancelled = false;
     loadCobrancasRecebidasStorage().then((saved) => {
       if (!cancelled && saved && Array.isArray(saved)) {
@@ -269,7 +333,7 @@ export function AppProvider({ children }) {
       if (!cancelled) setCobrancasRecebidasLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
     if (!cobrancasRecebidasLoaded) return;
@@ -277,6 +341,7 @@ export function AppProvider({ children }) {
   }, [cobrancasRecebidas, cobrancasRecebidasLoaded]);
 
   useEffect(() => {
+    if (user && (!supabaseFetchDone || hydratedFromSupabase)) return;
     let cancelled = false;
     loadPerfilStorage().then((saved) => {
       if (!cancelled && saved && typeof saved === 'object') {
@@ -285,12 +350,99 @@ export function AppProvider({ children }) {
       if (!cancelled) setPerfilLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [user, supabaseFetchDone, hydratedFromSupabase]);
 
   useEffect(() => {
     if (!perfilLoaded) return;
     savePerfilStorage(perfil);
   }, [perfil, perfilLoaded]);
+
+  // Preenche perfil inicial a partir dos metadados do usuário do Supabase (nome/cpf do cadastro)
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!supabaseFetchDone) return;
+    if (perfilLoaded && perfil) return;
+    const meta = user.user_metadata || {};
+    if (!meta.nome_completo && !meta.cpf) return;
+    setPerfilState((prev) => prev || {
+      nomeCompleto: meta.nome_completo || undefined,
+      cpf: meta.cpf || undefined,
+    });
+  }, [user?.id, user?.user_metadata, supabaseFetchDone, perfilLoaded, perfil]);
+
+  const usuariosForPayload = useMemo(
+    () => [
+      { id: PRINCIPAL_ID, nome: perfil?.nomeCompleto || 'Principal', principal: true },
+      ...(usuariosOutros || []),
+    ],
+    [perfil, usuariosOutros]
+  );
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const allLoaded =
+      contasLoaded &&
+      cartoesLoaded &&
+      transacoesLoaded &&
+      objetivosLoaded &&
+      financiamentosLoaded &&
+      orcamentoLoaded &&
+      usuariosLoaded &&
+      recebimentosLoaded &&
+      cobrancasRecebidasLoaded &&
+      perfilLoaded &&
+      categoriasLoaded &&
+      cardsLoaded;
+    if (!allLoaded) return;
+    if (saveToSupabaseTimeoutRef.current) clearTimeout(saveToSupabaseTimeoutRef.current);
+    saveToSupabaseTimeoutRef.current = setTimeout(() => {
+      saveToSupabaseTimeoutRef.current = null;
+      saveUserData(user.id, {
+        contas,
+        cartoes,
+        transacoes,
+        objetivos,
+        financiamentos,
+        orcamentoMensal,
+        recebimentosUsuarios: recebimentosDeUsuarios,
+        usuarios: usuariosForPayload,
+        cobrancasRecebidas,
+        perfil,
+        categorias,
+        cardsTelaInicial: { enabled: cardsDaTelaInicial, order: cardsOrdem },
+      });
+    }, 1500);
+    return () => {
+      if (saveToSupabaseTimeoutRef.current) clearTimeout(saveToSupabaseTimeoutRef.current);
+    };
+  }, [
+    user?.id,
+    contas,
+    cartoes,
+    transacoes,
+    objetivos,
+    financiamentos,
+    orcamentoMensal,
+    recebimentosDeUsuarios,
+    usuariosForPayload,
+    cobrancasRecebidas,
+    perfil,
+    categorias,
+    cardsDaTelaInicial,
+    cardsOrdem,
+    contasLoaded,
+    cartoesLoaded,
+    transacoesLoaded,
+    objetivosLoaded,
+    financiamentosLoaded,
+    orcamentoLoaded,
+    usuariosLoaded,
+    recebimentosLoaded,
+    cobrancasRecebidasLoaded,
+    perfilLoaded,
+    categoriasLoaded,
+    cardsLoaded,
+  ]);
 
   const setPerfil = useCallback((data) => {
     setPerfilState((prev) => ({ ...prev, ...data }));
@@ -666,13 +818,14 @@ export function AppProvider({ children }) {
 
   const getPrincipalUserId = useCallback(() => PRINCIPAL_ID, []);
 
-  const addUser = useCallback((nome, cpf) => {
+  const addUser = useCallback((nome, cpf, email) => {
     const id = Date.now().toString();
     const cpfDigits = cpf ? String(cpf).replace(/\D/g, '').slice(0, 11) : undefined;
     const novo = {
       id,
       nome: (nome || '').trim() || 'Usuário',
       cpf: cpfDigits,
+      email: email ? String(email).trim() || undefined : undefined,
     };
     setUsuariosOutros((prev) => [...prev, novo]);
     return id;

@@ -12,19 +12,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 
 const ABA_GERENCIAR = 'GERENCIAR';
 const ABA_GERAL = 'GERAL';
 const ABA_SOBRE = 'SOBRE';
 
 const opcoesGerenciar = [
+  { id: 'perfil', label: 'Meu perfil', icon: 'person-outline', screen: 'Perfil' },
   { id: 'contas', label: 'Contas', icon: 'business-outline', screen: 'Contas' },
   { id: 'cartao', label: 'Cartão', icon: 'card-outline', screen: 'Cartoes' },
   { id: 'financiamentos', label: 'Financiamentos', icon: 'document-text-outline', screen: 'Financiamentos' },
   { id: 'categorias', label: 'Categorias', icon: 'pricetag-outline', screen: 'Categories' },
   { id: 'tags', label: 'Tags', icon: 'pricetags-outline', screen: null },
   { id: 'objetivos', label: 'Objetivos', icon: 'flag-outline', screen: 'Objetivos' },
-  { id: 'perfil', label: 'Meu perfil', icon: 'person-outline', screen: 'Perfil' },
   { id: 'usuarios', label: 'Usuários (dividir despesas)', icon: 'people-outline', screen: 'Usuarios' },
   { id: 'cobrancasRecebidas', label: 'Cobranças recebidas', icon: 'document-text-outline', screen: 'CobrancasRecebidas' },
   { id: 'importar', label: 'Importar dados', icon: 'cloud-upload-outline', screen: 'ExportImport' },
@@ -51,6 +52,7 @@ export default function MaisScreen({ navigation }) {
   const [aba, setAba] = useState(ABA_GERENCIAR);
   const [modoViagem, setModoViagem] = useState(false);
   const { resetAllData } = useApp();
+  const { isAuthenticated, signOut } = useAuth();
 
   const abas = [
     { key: ABA_GERENCIAR, label: 'GERENCIAR' },
@@ -61,11 +63,22 @@ export default function MaisScreen({ navigation }) {
   const getOpcoes = () => {
     if (aba === ABA_GERAL) return opcoesGeral;
     if (aba === ABA_SOBRE) return opcoesSobre;
-    return opcoesGerenciar;
+    const list = [...opcoesGerenciar];
+    if (isAuthenticated) {
+      list.push({ id: 'sair', label: 'Sair da conta', icon: 'log-out-outline', action: 'signOut' });
+    }
+    return list;
   };
 
   const handleOpcao = (op) => {
     if (op.toggle) return;
+    if (op.action === 'signOut') {
+      Alert.alert('Sair', 'Deseja sair da sua conta?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sair', onPress: () => signOut?.() },
+      ]);
+      return;
+    }
     if (op.id === 'zerarDados') {
       Alert.alert(
         'Zerar dados do app',

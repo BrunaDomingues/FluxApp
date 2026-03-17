@@ -106,6 +106,15 @@ export default function ContasScreen({ navigation }) {
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Contas</Text>
+        <View style={styles.monthRow}>
+          <TouchableOpacity onPress={mesAnterior} style={styles.monthArrow}>
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.monthLabel}>{MESES[mesIndex]}</Text>
+          <TouchableOpacity onPress={mesProximo} style={styles.monthArrow}>
+            <Ionicons name="chevron-forward" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity style={styles.headerIcon}>
           <Ionicons name="archive-outline" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
@@ -116,17 +125,6 @@ export default function ContasScreen({ navigation }) {
           <Ionicons name="ellipsis-vertical" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
-
-      <View style={styles.monthRow}>
-        <TouchableOpacity onPress={mesAnterior} style={styles.monthArrow}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.monthLabel}>{MESES[mesIndex]}</Text>
-        <TouchableOpacity onPress={mesProximo} style={styles.monthArrow}>
-          <Ionicons name="chevron-forward" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomSafe }]}
@@ -256,16 +254,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     backgroundColor: colors.secondary,
   },
-  backBtn: { padding: spacing.xs, marginRight: spacing.sm },
+  backBtn: { padding: spacing.xs, marginRight: spacing.xs },
   title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, flex: 1 },
   headerIcon: { padding: spacing.xs, marginLeft: spacing.xs },
   monthRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     backgroundColor: colors.secondary,
-    gap: spacing.md,
+    gap: spacing.xs,
   },
   monthArrow: { padding: spacing.xs },
   monthLabel: { fontSize: 16, fontWeight: '600', color: colors.textPrimary },

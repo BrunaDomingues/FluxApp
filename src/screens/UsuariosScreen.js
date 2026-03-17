@@ -14,15 +14,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '../components/Icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { useApp } from '../context/AppContext';
-import { maskCpfInput } from '../utils/dateMask';
+import { useAuth } from '../context/AuthContext';
+import { maskCpfInput, normalizeCpf } from '../utils/dateMask';
+import { validateEmail, validateCpf } from '../utils/authValidation';
 
 export default function UsuariosScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { usuarios, addUser, updateUser, removeUser } = useApp();
+  const { createPendingUser } = useAuth();
   const [modalVisible, setModalVisible] = useState(false);
   const [editarId, setEditarId] = useState(null);
   const [nomeInput, setNomeInput] = useState('');
   const [cpfInput, setCpfInput] = useState('');
+  const [emailInput, setEmailInput] = useState('');
+  const [conviteEnviado, setConviteEnviado] = useState(false);
 
   const listaParaDividir = (usuarios || []).filter((u) => !u.principal);
   const usuariosOrdenados = [...listaParaDividir].sort((a, b) =>
@@ -35,6 +40,8 @@ export default function UsuariosScreen({ navigation }) {
     setEditarId(null);
     setNomeInput('');
     setCpfInput('');
+    setEmailInput('');
+    setConviteEnviado(false);
     setModalVisible(true);
   };
 
@@ -42,6 +49,8 @@ export default function UsuariosScreen({ navigation }) {
     setEditarId(u.id);
     setNomeInput(u.nome || '');
     setCpfInput(u.cpf ? maskCpfInput(u.cpf) : '');
+    setEmailInput(u.email || '');
+    setConviteEnviado(false);
     setModalVisible(true);
   };
 
@@ -52,12 +61,43 @@ export default function UsuariosScreen({ navigation }) {
       return;
     }
     const cpfDigits = (cpfInput || '').replace(/\D/g, '').slice(0, 11);
+    const email = emailInput.trim() || undefined;
     if (editarId) {
-      updateUser(editarId, { nome, cpf: cpfDigits || undefined });
+      updateUser(editarId, { nome, cpf: cpfDigits || undefined, email });
     } else {
-      addUser(nome, cpfDigits || undefined);
+      addUser(nome, cpfDigits || undefined, email);
     }
     setModalVisible(false);
+  };
+
+  const handleEnviarConvite = async () => {
+    const nome = nomeInput.trim();
+    const cpfDigits = normalizeCpf(cpfInput);
+    const e = emailInput.trim();
+    if (!nome) {
+      Alert.alert('Atenção', 'Informe o nome.');
+      return;
+    }
+    const cpfResult = validateCpf(cpfInput);
+    if (!cpfResult.ok) {
+      Alert.alert('CPF inválido', cpfResult.error);
+      return;
+    }
+    if (!e) {
+      Alert.alert('Atenção', 'Informe o e-mail para enviar o convite.');
+      return;
+    }
+    if (!validateEmail(e)) {
+      Alert.alert('E-mail inválido', 'Digite um e-mail válido.');
+      return;
+    }
+    const { error } = await createPendingUser(e, cpfDigits, nome);
+    if (error) {
+      Alert.alert('Erro', error);
+      return;
+    }
+    setConviteEnviado(true);
+    Alert.alert('Convite enviado', 'A pessoa pode abrir o app, ir em Criar conta e informar este e-mail e CPF. Em seguida só precisará criar a senha.');
   };
 
   const handleExcluir = (u) => {
@@ -166,6 +206,26 @@ export default function UsuariosScreen({ navigation }) {
               keyboardType="numeric"
               maxLength={14}
             />
+            <Text style={styles.label}>E-mail (opcional – para convidar a criar conta no app)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="email@exemplo.com"
+              placeholderTextColor={colors.textMuted}
+              value={emailInput}
+              onChangeText={setEmailInput}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            {emailInput.trim() ? (
+              <TouchableOpacity
+                style={[styles.conviteBtn, conviteEnviado && styles.conviteBtnDone]}
+                onPress={handleEnviarConvite}
+                disabled={conviteEnviado}
+              >
+                <Ionicons name={conviteEnviado ? 'checkmark-circle' : 'mail-outline'} size={20} color="#fff" />
+                <Text style={styles.conviteBtnText}>{conviteEnviado ? 'Convite enviado' : 'Enviar convite'}</Text>
+              </TouchableOpacity>
+            ) : null}
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setModalVisible(false)}>
                 <Text style={styles.modalCancelText}>Cancelar</Text>
@@ -297,6 +357,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   modalActions: { flexDirection: 'row', gap: spacing.md, justifyContent: 'flex-end' },
+  conviteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.secondary,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+  },
+  conviteBtnDone: { opacity: 0.8 },
+  conviteBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
   modalCancelBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
   modalCancelText: { fontSize: 16, color: colors.textMuted },
   modalOkBtn: {

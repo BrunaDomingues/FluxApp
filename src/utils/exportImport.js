@@ -336,15 +336,7 @@ export function buildBackupPayload(data) {
   const payload = {
     type: BACKUP_PAYLOAD_TYPE,
     version: BACKUP_PAYLOAD_VERSION,
-    contas: data.contas || [],
-    cartoes: data.cartoes || [],
-    transacoes: data.transacoes || [],
-    objetivos: data.objetivos || [],
-    financiamentos: data.financiamentos || [],
-    orcamentoMensal: data.orcamentoMensal || {},
-    recebimentosUsuarios: data.recebimentosUsuarios || [],
-    usuarios: data.usuarios || [],
-    perfil: data.perfil || null,
+    ...buildAppDataPayload(data),
     generatedAt: new Date().toISOString(),
   };
   return JSON.stringify(payload, null, 0);
@@ -354,18 +346,45 @@ export function parseBackupPayload(jsonString) {
   try {
     const data = JSON.parse(jsonString);
     if (data.type !== BACKUP_PAYLOAD_TYPE) return null;
-    return {
-      contas: Array.isArray(data.contas) ? data.contas : [],
-      cartoes: Array.isArray(data.cartoes) ? data.cartoes : [],
-      transacoes: Array.isArray(data.transacoes) ? data.transacoes : [],
-      objetivos: Array.isArray(data.objetivos) ? data.objetivos : [],
-      financiamentos: Array.isArray(data.financiamentos) ? data.financiamentos : [],
-      orcamentoMensal: data.orcamentoMensal && typeof data.orcamentoMensal === 'object' ? data.orcamentoMensal : {},
-      recebimentosUsuarios: Array.isArray(data.recebimentosUsuarios) ? data.recebimentosUsuarios : [],
-      usuarios: Array.isArray(data.usuarios) ? data.usuarios : [],
-      perfil: data.perfil && typeof data.perfil === 'object' ? data.perfil : null,
-    };
+    return parseAppDataFromObject(data);
   } catch (_) {
     return null;
   }
+}
+
+/** Monta o objeto completo dos dados do app para salvar no Supabase (user_data.data). */
+export function buildAppDataPayload(data) {
+  return {
+    contas: data.contas || [],
+    cartoes: data.cartoes || [],
+    transacoes: data.transacoes || [],
+    objetivos: data.objetivos || [],
+    financiamentos: data.financiamentos || [],
+    orcamentoMensal: data.orcamentoMensal || {},
+    recebimentosUsuarios: data.recebimentosUsuarios || [],
+    usuarios: data.usuarios || [],
+    cobrancasRecebidas: data.cobrancasRecebidas || [],
+    perfil: data.perfil || null,
+    categorias: data.categorias || null,
+    cardsTelaInicial: data.cardsTelaInicial || null,
+  };
+}
+
+/** Parseia um objeto (do backup ou do Supabase) para o formato usado pelo AppContext. */
+export function parseAppDataFromObject(data) {
+  if (!data || typeof data !== 'object') return null;
+  return {
+    contas: Array.isArray(data.contas) ? data.contas : [],
+    cartoes: Array.isArray(data.cartoes) ? data.cartoes : [],
+    transacoes: Array.isArray(data.transacoes) ? data.transacoes : [],
+    objetivos: Array.isArray(data.objetivos) ? data.objetivos : [],
+    financiamentos: Array.isArray(data.financiamentos) ? data.financiamentos : [],
+    orcamentoMensal: data.orcamentoMensal && typeof data.orcamentoMensal === 'object' ? data.orcamentoMensal : {},
+    recebimentosUsuarios: Array.isArray(data.recebimentosUsuarios) ? data.recebimentosUsuarios : [],
+    usuarios: Array.isArray(data.usuarios) ? data.usuarios : [],
+    cobrancasRecebidas: Array.isArray(data.cobrancasRecebidas) ? data.cobrancasRecebidas : [],
+    perfil: data.perfil && typeof data.perfil === 'object' ? data.perfil : null,
+    categorias: Array.isArray(data.categorias) ? data.categorias : null,
+    cardsTelaInicial: data.cardsTelaInicial && typeof data.cardsTelaInicial === 'object' ? data.cardsTelaInicial : null,
+  };
 }
