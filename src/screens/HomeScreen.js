@@ -150,14 +150,30 @@ export default function HomeScreen({ navigation }) {
                     <Text style={styles.receberSub}>
                       Você tem R$ {aReceberTerceiros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a receber
                     </Text>
+                    {pagamentosSinalizadosCount > 0 && (
+                      <Text style={styles.receberSubExtra}>
+                        {pagamentosSinalizadosCount === 1
+                          ? 'Esse recebimento foi marcado como pago pelo outro usuário.'
+                          : `${pagamentosSinalizadosCount} desses recebimentos foram marcados como pagos pelos outros usuários.`}
+                      </Text>
+                    )}
                   </View>
                   <TouchableOpacity
-                    style={styles.receberBtn}
-                    onPress={() => navigation.navigate('CobrancaUsuario', { openRecebimento: true })}
+                    style={[styles.receberBtn, pagamentosSinalizadosCount > 0 && { backgroundColor: colors.positive }]}
+                    onPress={() => {
+                      if (pagamentosSinalizadosCount > 0) navigation.navigate('PagamentosSinalizados');
+                      else navigation.navigate('CobrancaUsuario', { openRecebimento: true });
+                    }}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="cash-outline" size={18} color="#fff" />
-                    <Text style={styles.receberBtnText}>Registrar</Text>
+                    <Ionicons
+                      name={pagamentosSinalizadosCount > 0 ? 'checkmark-done-outline' : 'cash-outline'}
+                      size={18}
+                      color="#fff"
+                    />
+                    <Text style={styles.receberBtnText}>
+                      {pagamentosSinalizadosCount > 0 ? 'Confirmar' : 'Registrar'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -179,7 +195,8 @@ export default function HomeScreen({ navigation }) {
                   </TouchableOpacity>
                 </View>
               )}
-              {pagamentosSinalizadosCount > 0 && (
+              {/* Só mostra o card separado de \"Pagamentos sinalizados\" quando não houver recebimentos pendentes. */}
+              {pagamentosSinalizadosCount > 0 && aReceberTerceiros === 0 && (
                 <View style={[styles.receberRow, { marginTop: (aReceberTerceiros > 0 || aPagarCompartilhado > 0) ? spacing.sm : 0 }]}>
                   <View style={styles.receberInfo}>
                     <Text style={styles.receberTitle}>Pagamentos sinalizados</Text>
@@ -1338,6 +1355,7 @@ const styles = StyleSheet.create({
   receberInfo: { flex: 1 },
   receberTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
   receberSub: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  receberSubExtra: { fontSize: 12, color: colors.positive, marginTop: 2 },
   receberBtn: {
     flexDirection: 'row',
     alignItems: 'center',

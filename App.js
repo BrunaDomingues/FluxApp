@@ -75,6 +75,7 @@ function MainTabs() {
 function MainStack() {
   return (
     <Stack.Navigator
+      initialRouteName="MainTabs"
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
@@ -151,8 +152,31 @@ function RootNavigator() {
 
   return (
     <AppProvider>
-      <MainStack />
+      <MainAppGate />
     </AppProvider>
+  );
+}
+
+function MainAppGate() {
+  const { isHydrating } = useApp();
+  if (isHydrating) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Carregando seus dados…</Text>
+      </View>
+    );
+  }
+  return <MainStack />;
+}
+
+function AppNavigator() {
+  const { session } = useAuth();
+  return (
+    <NavigationContainer key={session ? 'main' : 'auth'}>
+      <StatusBar style="light" />
+      <RootNavigator />
+    </NavigationContainer>
   );
 }
 
@@ -162,10 +186,7 @@ export default function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <AppAlertProvider>
-            <NavigationContainer>
-              <StatusBar style="light" />
-              <RootNavigator />
-            </NavigationContainer>
+            <AppNavigator />
           </AppAlertProvider>
         </AuthProvider>
       </SafeAreaProvider>

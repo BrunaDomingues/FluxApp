@@ -232,12 +232,14 @@ export function AppProvider({ children }) {
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  /** Recarrega contas e transações do Supabase (útil após marcar despesa compartilhada como paga). */
+  /** Recarrega dados principais do Supabase (útil após marcar despesa compartilhada como paga / confirmar recebimento). */
   const refetchUserData = useCallback(() => {
     if (!user?.id) return Promise.resolve();
     return loadUserData(user.id).then((data) => {
       if (data?.contas?.length > 0) setContas(data.contas);
-      if (data?.transacoes) setTransacoes(data.transacoes);
+      if (data?.transacoes) setTransacoes(data.transacoes || []);
+      if (data?.recebimentosUsuarios) setRecebimentosDeUsuarios(data.recebimentosUsuarios || []);
+      if (data?.cobrancasRecebidas) setCobrancasRecebidas(data.cobrancasRecebidas || []);
     });
   }, [user?.id]);
 
@@ -1310,6 +1312,7 @@ export function AppProvider({ children }) {
     .reduce((s, x) => s + Math.abs(x.valor || 0), 0);
 
   const value = {
+    isHydrating: Boolean(user && !supabaseFetchDone),
     contas,
     cartoes,
     categorias,

@@ -151,7 +151,11 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) return { data, error };
     const { addAccount } = options;
-    const s = data?.session;
+    let s = data?.session;
+    if (!s) {
+      const { data: d } = await supabase.auth.getSession();
+      s = d?.session;
+    }
     if (s?.refresh_token) {
       const slot1 = await getStoredSlot(1);
       const slot2 = await getStoredSlot(2);
@@ -170,9 +174,9 @@ export function AuthProvider({ children }) {
         await setStoredSlot(active, slotData);
       }
     }
-    setSession(data?.session ?? null);
-    setUser(data?.user ?? null);
-    return { data, error: null };
+    setSession(s ?? null);
+    setUser(s?.user ?? data?.user ?? null);
+    return { data: { ...data, session: s }, error: null };
   }, []);
 
   const signUp = useCallback(async (email, password, profile = {}) => {
@@ -245,7 +249,7 @@ export function AuthProvider({ children }) {
     return switchToAccount(otherSlot);
   }, []);
 
-  /** Ativa a conta do slot indicado (1 ou 2). Se já for a ativa, não faz nada. */
+  /** Ativa a conta do slot indicado (1 ou 2). Se já for a ativa, não faz nada. Não chama signOut para evitar redirecionar ao login. */
   const switchToAccount = useCallback(async (targetSlot) => {
     if (!isSupabaseConfigured) return { error: 'Não configurado.' };
     const active = await getActiveSlot();
@@ -254,27 +258,23 @@ export function AuthProvider({ children }) {
     if (!target?.refresh_token) return { error: 'Conta não encontrada.' };
     const { data: { session: s } } = await supabase.auth.getSession();
     if (s?.refresh_token) await setStoredSlot(active, { refresh_token: s.refresh_token, email: s.user?.email ?? '' });
-    await supabase.auth.signOut();
     const { data: { session: s2 }, error } = await supabase.auth.refreshSession({ refresh_token: target.refresh_token });
     if (error) return { error: error.message };
     await setActiveSlot(targetSlot);
-    setSession(s2);
+    setSession(s2 ?? null);
     setUser(s2?.user ?? null);
     return { error: null };
   }, []);
 
-  /** Remove uma conta dos armazenadas. Se for a ativa, alterna para a outra ou encerra todas. */
+  /** Remove uma conta dos armazenadas. Se for a ativa, alterna para a outra ou encerra todas. Não usa signOut ao trocar para a outra conta. */
   const removeStoredAccount = useCallback(async (slot) => {
     const active = await getActiveSlot();
-    const slot1 = await getStoredSlot(1);
-    const slot2 = await getStoredSlot(2);
     const isActive = slot === active;
     await setStoredSlot(slot, null);
     if (!isActive) return { error: null };
     const otherSlot = slot === 1 ? 2 : 1;
     const other = await getStoredSlot(otherSlot);
     if (other?.refresh_token) {
-      await supabase.auth.signOut();
       const { data: { session: s2 }, error } = await supabase.auth.refreshSession({ refresh_token: other.refresh_token });
       if (!error && s2) {
         await setActiveSlot(otherSlot);
@@ -282,6 +282,7 @@ export function AuthProvider({ children }) {
         setUser(s2.user ?? null);
       } else {
         await setActiveSlot(1);
+        await supabase.auth.signOut();
         setSession(null);
         setUser(null);
       }

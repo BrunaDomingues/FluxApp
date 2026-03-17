@@ -147,16 +147,19 @@ export default function GerenciarContasScreen({ navigation }) {
               const isActing = actingSlot === acc.slot;
               return (
                 <View key={acc.slot} style={styles.card}>
-                  <View style={styles.cardTop}>
-                    <View style={styles.cardLeft}>
-                      <Text style={styles.email}>{acc.email}</Text>
+                  {/* Linha 1: e-mail ocupando toda a largura */}
+                  <View style={styles.cardHeaderRow}>
+                    <Text style={styles.email}>{acc.email}</Text>
+                  </View>
+
+                  {/* Linha 2: à esquerda badge Ativa ou botão Usar; à direita Encerrar sessão */}
+                  <View style={styles.cardBottomRow}>
+                    <View style={styles.cardLeftActions}>
                       {isActive && (
                         <View style={styles.badgeAtiva}>
                           <Text style={styles.badgeAtivaText}>Ativa</Text>
                         </View>
                       )}
-                    </View>
-                    <View style={styles.cardActions}>
                       {!isActive && (
                         <TouchableOpacity
                           style={[styles.btnUsar, isActing && styles.btnDisabled]}
@@ -173,6 +176,9 @@ export default function GerenciarContasScreen({ navigation }) {
                           )}
                         </TouchableOpacity>
                       )}
+                    </View>
+
+                    <View style={styles.cardRight}>
                       <TouchableOpacity
                         style={styles.btnEncerrar}
                         onPress={() => handleEncerrarSessao(acc)}
@@ -235,38 +241,58 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
   },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' },
-  cardLeft: { flex: 1, minWidth: 120 },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  cardLeftActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
   email: { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
   badgeAtiva: {
-    alignSelf: 'flex-start',
     backgroundColor: colors.positive + '30',
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: borderRadius.sm,
-    marginTop: 4,
+    marginRight: spacing.xs,
   },
   badgeAtivaText: { fontSize: 12, fontWeight: '600', color: colors.positive },
-  cardActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+  cardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+    flexShrink: 0,
+  },
   btnUsar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 2,
     backgroundColor: colors.positive,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.sm,
   },
   btnDisabled: { opacity: 0.7 },
-  btnUsarText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  btnUsarText: { fontSize: 12, fontWeight: '600', color: '#fff' },
   btnEncerrar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
   },
-  btnEncerrarText: { fontSize: 14, color: colors.spending },
+  btnEncerrarText: { fontSize: 12, color: colors.spending },
   btnAdicionar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -281,8 +307,9 @@ const styles = StyleSheet.create({
   btnEncerrarTodas: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
-    padding: spacing.md,
+    padding: spacing.sm,
     borderWidth: 1,
     borderColor: colors.spending + '60',
     borderRadius: borderRadius.md,
