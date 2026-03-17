@@ -23,7 +23,7 @@ const opcoesGerenciar = [
   { id: 'contas', label: 'Contas', icon: 'business-outline', screen: 'Contas' },
   { id: 'cartao', label: 'Cartão', icon: 'card-outline', screen: 'Cartoes' },
   { id: 'financiamentos', label: 'Financiamentos', icon: 'document-text-outline', screen: 'Financiamentos' },
-  { id: 'graficos', label: 'Gráficos', icon: 'pie-chart-outline', screen: 'BalancoMensal' },
+  { id: 'graficos', label: 'Gráficos', icon: 'pie-chart-outline', screen: 'Graficos' },
   { id: 'balancoMensal', label: 'Balanço mensal', icon: 'stats-chart-outline', screen: 'BalancoMensal' },
   { id: 'categorias', label: 'Categorias', icon: 'pricetag-outline', screen: 'Categories' },
   { id: 'tags', label: 'Tags', icon: 'pricetags-outline', screen: null },
@@ -39,7 +39,7 @@ const opcoesGerenciar = [
 ];
 
 const opcoesGeral = [
-  { id: 'graficos', label: 'Gráficos', icon: 'pie-chart-outline', screen: 'BalancoMensal' },
+  { id: 'graficos', label: 'Gráficos', icon: 'pie-chart-outline', screen: 'Graficos' },
   { id: 'balancoMensal', label: 'Balanço mensal', icon: 'stats-chart-outline', screen: 'BalancoMensal' },
   { id: 'moeda', label: 'Moeda', icon: 'cash-outline', value: 'Real (BRL)' },
   { id: 'idioma', label: 'Idioma', icon: 'language-outline', value: 'Português' },

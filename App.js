@@ -30,6 +30,7 @@ import FinanciamentosScreen from './src/screens/FinanciamentosScreen';
 import AddFinanciamentoScreen from './src/screens/AddFinanciamentoScreen';
 import FinanciamentoDetalhesScreen from './src/screens/FinanciamentoDetalhesScreen';
 import BalancoMensalScreen from './src/screens/BalancoMensalScreen';
+import GraficosScreen from './src/screens/GraficosScreen';
 import ObjetivosScreen from './src/screens/ObjetivosScreen';
 import ObjetivoDetalhesScreen from './src/screens/ObjetivoDetalhesScreen';
 import AddObjetivoScreen from './src/screens/AddObjetivoScreen';
@@ -96,6 +97,7 @@ function MainStack() {
       <Stack.Screen name="Financiamentos" component={FinanciamentosScreen} />
       <Stack.Screen name="AddFinanciamento" component={AddFinanciamentoScreen} />
       <Stack.Screen name="FinanciamentoDetalhes" component={FinanciamentoDetalhesScreen} />
+      <Stack.Screen name="Graficos" component={GraficosScreen} />
       <Stack.Screen name="BalancoMensal" component={BalancoMensalScreen} />
       <Stack.Screen name="Objetivos" component={ObjetivosScreen} />
       <Stack.Screen name="ObjetivoDetalhes" component={ObjetivoDetalhesScreen} />
