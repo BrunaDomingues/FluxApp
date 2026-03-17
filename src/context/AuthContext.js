@@ -216,6 +216,9 @@ export function AuthProvider({ children }) {
     await setStoredSlot(2, null);
     await setActiveSlot(1);
     await supabase.auth.signOut();
+    // Garante que a UI vá para o login imediatamente, mesmo se o evento demorar.
+    setSession(null);
+    setUser(null);
   }, []);
 
   /** Salva a sessão atual em um slot (usar antes de navegar para "Adicionar outra conta"). */
